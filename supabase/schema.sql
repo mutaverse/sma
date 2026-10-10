@@ -104,6 +104,27 @@ create table if not exists public.stock_counts (
   primary key (user_id, id)
 );
 
+create table if not exists public.momo_transactions (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id uuid not null,
+  transaction_type text not null check (transaction_type in ('cash_in', 'cash_out', 'airtime')),
+  provider text not null,
+  amount bigint not null,
+  fee bigint not null default 0,
+  customer_reference text,
+  transaction_date text not null,
+  note text,
+  created_at text not null,
+  updated_at text not null,
+  deleted_at text,
+  primary key (user_id, id)
+);
+
+alter table public.momo_transactions drop constraint if exists momo_transactions_transaction_type_check;
+alter table public.momo_transactions
+  add constraint momo_transactions_transaction_type_check
+  check (transaction_type in ('cash_in', 'cash_out', 'airtime'));
+
 create index if not exists idx_products_user_updated on public.products (user_id, updated_at);
 create index if not exists idx_categories_user_updated on public.categories (user_id, updated_at);
 create index if not exists idx_purchases_user_updated on public.purchases (user_id, updated_at);
@@ -111,6 +132,7 @@ create index if not exists idx_price_history_user_updated on public.price_histor
 create index if not exists idx_daily_sales_user_updated on public.daily_sales (user_id, updated_at);
 create index if not exists idx_stock_counts_user_updated on public.stock_counts (user_id, updated_at);
 create index if not exists idx_app_settings_user_updated on public.app_settings (user_id, updated_at);
+create index if not exists idx_momo_transactions_user_updated on public.momo_transactions (user_id, updated_at);
 
 alter table public.app_settings enable row level security;
 alter table public.categories enable row level security;
@@ -119,6 +141,7 @@ alter table public.purchases enable row level security;
 alter table public.price_history enable row level security;
 alter table public.daily_sales enable row level security;
 alter table public.stock_counts enable row level security;
+alter table public.momo_transactions enable row level security;
 
 drop policy if exists app_settings_owner on public.app_settings;
 create policy app_settings_owner on public.app_settings
@@ -162,6 +185,12 @@ create policy stock_counts_owner on public.stock_counts
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+drop policy if exists momo_transactions_owner on public.momo_transactions;
+create policy momo_transactions_owner on public.momo_transactions
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
 grant select, insert, update, delete on public.app_settings to authenticated;
 grant select, insert, update, delete on public.categories to authenticated;
 grant select, insert, update, delete on public.products to authenticated;
@@ -169,3 +198,4 @@ grant select, insert, update, delete on public.purchases to authenticated;
 grant select, insert, update, delete on public.price_history to authenticated;
 grant select, insert, update, delete on public.daily_sales to authenticated;
 grant select, insert, update, delete on public.stock_counts to authenticated;
+grant select, insert, update, delete on public.momo_transactions to authenticated;

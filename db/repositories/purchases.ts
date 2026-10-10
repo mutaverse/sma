@@ -112,6 +112,29 @@ export async function recordPurchase(db: DbClient, input: RecordPurchaseInput): 
   };
 }
 
+export async function previewPurchaseRemoval(
+  db: DbClient,
+  purchaseId: string,
+): Promise<UndoLatestPreview> {
+  const existing = await activePurchase(db, purchaseId);
+  if (!existing) {
+    throw new DomainError('That purchase is no longer available.');
+  }
+
+  const product = await requireProduct(db, existing.product_id);
+  const remaining = await latestActivePurchasePrices(db, existing.product_id, purchaseId);
+  const fallback = await latestPriceHistory(db, existing.product_id, purchaseId);
+  const stock = subtractStock(product.currentStockThousandths, existing.quantity);
+
+  return {
+    purchase: mapPurchase(existing),
+    nextStockThousandths: stock.next,
+    nextCostPesewas: remaining?.unitCost ?? fallback?.cost_price ?? 0,
+    nextSellingPesewas: remaining?.sellingPrice ?? fallback?.selling_price ?? 0,
+    clampedToZero: stock.clamped,
+  };
+}
+
 export async function previewUndoLatestPurchase(
   db: DbClient,
   productId: string,
@@ -137,38 +160,156 @@ export async function previewUndoLatestPurchase(
 }
 
 export async function undoLatestPurchase(db: DbClient, productId: string): Promise<Purchase> {
-  const preview = await previewUndoLatestPurchase(db, productId);
+  const latest = await latestActivePurchase(db, productId);
+  if (!latest) {
+    throw new DomainError('There is no purchase to undo for this product.');
+  }
+
+  return deletePurchase(db, latest.id);
+}
+
+export async function updatePurchase(
+  db: DbClient,
+  purchaseId: string,
+  input: RecordPurchaseInput,
+): Promise<Purchase> {
+  const parsed = recordPurchaseSchema.parse(input);
+  const existing = await activePurchase(db, purchaseId);
+  if (!existing || existing.product_id !== parsed.productId) {
+    throw new DomainError('That purchase is no longer available.');
+  }
+
+  const product = await requireProduct(db, parsed.productId);
+  const unitCost = calculateUnitCost(parsed.totalCostPesewas, parsed.quantityThousandths);
+  const delta = parsed.quantityThousandths - existing.quantity;
+  const nextStock =
+    delta >= 0
+      ? addStock(product.currentStockThousandths, delta)
+      : subtractStock(product.currentStockThousandths, -delta).next;
   const timestamp = nowIso();
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      'UPDATE purchases SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-      [timestamp, timestamp, preview.purchase.id],
+      `UPDATE purchases
+       SET quantity = ?, total_cost = ?, unit_cost = ?, selling_price = ?, purchase_date = ?, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      [
+        parsed.quantityThousandths,
+        parsed.totalCostPesewas,
+        unitCost,
+        parsed.sellingPricePesewas,
+        parsed.purchaseDate,
+        timestamp,
+        purchaseId,
+      ],
     );
+    const historyUpdate = await db.runAsync(
+      `UPDATE price_history
+       SET cost_price = ?, selling_price = ?, recorded_at = ?, updated_at = ?
+       WHERE purchase_id = ?`,
+      [unitCost, parsed.sellingPricePesewas, isoFromCalendarDate(parsed.purchaseDate), timestamp, purchaseId],
+    );
+    if (historyUpdate.changes === 0) {
+      await db.runAsync(
+        `INSERT INTO price_history (
+          id, user_id, product_id, purchase_id, cost_price, selling_price, recorded_at, created_at, updated_at
+        ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          createId(),
+          parsed.productId,
+          purchaseId,
+          unitCost,
+          parsed.sellingPricePesewas,
+          isoFromCalendarDate(parsed.purchaseDate),
+          timestamp,
+          timestamp,
+        ],
+      );
+    }
 
+    const prices = await latestActivePurchasePrices(db, parsed.productId);
     await db.runAsync(
       `UPDATE products
        SET current_stock = ?, current_cost_price = ?, current_selling_price = ?, updated_at = ?
        WHERE id = ?`,
       [
-        preview.nextStockThousandths,
-        preview.nextCostPesewas,
-        preview.nextSellingPesewas,
+        nextStock,
+        prices?.unitCost ?? unitCost,
+        prices?.sellingPrice ?? parsed.sellingPricePesewas,
         timestamp,
-        productId,
+        parsed.productId,
       ],
     );
-
     await enqueueSyncEvent(db, {
       entityType: 'purchase',
-      entityId: preview.purchase.id,
-      operation: 'purchase.undone',
-      payload: { id: preview.purchase.id, productId },
+      entityId: purchaseId,
+      operation: 'purchase.recorded',
+      payload: { id: purchaseId, productId: parsed.productId },
+    });
+    await enqueueSyncEvent(db, {
+      entityType: 'product',
+      entityId: parsed.productId,
+      operation: 'product.upsert',
+      payload: { id: parsed.productId },
     });
   });
 
   return {
-    ...preview.purchase,
+    ...mapPurchase(existing),
+    quantityThousandths: parsed.quantityThousandths,
+    totalCostPesewas: parsed.totalCostPesewas,
+    unitCostPesewas: unitCost,
+    sellingPricePesewas: parsed.sellingPricePesewas,
+    purchaseDate: parsed.purchaseDate,
+    updatedAt: timestamp,
+  };
+}
+
+export async function deletePurchase(db: DbClient, purchaseId: string): Promise<Purchase> {
+  const existing = await activePurchase(db, purchaseId);
+  if (!existing) {
+    throw new DomainError('That purchase is no longer available.');
+  }
+
+  const product = await requireProduct(db, existing.product_id);
+  const stock = subtractStock(product.currentStockThousandths, existing.quantity);
+  const remaining = await latestActivePurchasePrices(db, existing.product_id, purchaseId);
+  const fallback = await latestPriceHistory(db, existing.product_id, purchaseId);
+  const timestamp = nowIso();
+
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'UPDATE purchases SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+      [timestamp, timestamp, purchaseId],
+    );
+    await db.runAsync(
+      `UPDATE products
+       SET current_stock = ?, current_cost_price = ?, current_selling_price = ?, updated_at = ?
+       WHERE id = ?`,
+      [
+        stock.next,
+        remaining?.unitCost ?? fallback?.cost_price ?? 0,
+        remaining?.sellingPrice ?? fallback?.selling_price ?? 0,
+        timestamp,
+        existing.product_id,
+      ],
+    );
+    await enqueueSyncEvent(db, {
+      entityType: 'purchase',
+      entityId: purchaseId,
+      operation: 'purchase.undone',
+      payload: { id: purchaseId, productId: existing.product_id },
+    });
+    await enqueueSyncEvent(db, {
+      entityType: 'product',
+      entityId: existing.product_id,
+      operation: 'product.upsert',
+      payload: { id: existing.product_id },
+    });
+  });
+
+  return {
+    ...mapPurchase(existing),
     updatedAt: timestamp,
     deletedAt: timestamp,
   };
@@ -190,6 +331,13 @@ export async function listPriceHistory(db: DbClient, productId: string): Promise
     [productId],
   );
   return rows.map(mapPriceHistory);
+}
+
+async function activePurchase(db: DbClient, purchaseId: string): Promise<PurchaseRecord | null> {
+  return db.getFirstAsync<PurchaseRecord>(
+    'SELECT * FROM purchases WHERE id = ? AND deleted_at IS NULL',
+    [purchaseId],
+  );
 }
 
 async function latestActivePurchase(db: DbClient, productId: string): Promise<PurchaseRecord | null> {

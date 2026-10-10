@@ -18,10 +18,8 @@ describe('undo copy', () => {
       ),
     ).toBe(
       [
-        'This removes 24 pack from on hand.',
-        'On hand will be 0 pack.',
-        'Cost will go back to GH₵ 22.80.',
-        'Selling price will go back to GH₵ 27.00.',
+        'Remove 24 pack · stock → 0 pack.',
+        'Prices → cost GH₵ 22.80 · selling GH₵ 27.00.',
       ].join('\n'),
     );
   });
@@ -39,6 +37,6 @@ describe('undo copy', () => {
         },
         'GH₵',
       ),
-    ).toContain('already lower than this purchase');
+    ).toContain('stock → 0 pack');
   });
 });

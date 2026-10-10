@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { Pencil, Trash2 } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmRow } from '@/components/products/ProductChrome';
-import { Button } from '@/components/ui/Button';
+import { Button, IconButton } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { SectionHeader } from '@/components/ui/SectionHeader';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
@@ -26,6 +26,7 @@ export function CategoryManager() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [newName, setNewName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Category | null>(null);
@@ -58,6 +59,7 @@ export function CategoryManager() {
     try {
       await createCategory(db, trimmed);
       setNewName('');
+      setAddOpen(false);
       await load();
     } catch (caught) {
       setError(userMessage(caught, 'We could not add that category.'));
@@ -104,28 +106,14 @@ export function CategoryManager() {
 
   return (
     <View style={styles.wrap}>
-      <SectionHeader title="Categories" />
-      <Text style={styles.body}>
-        Use these on Stock to browse by shelf. You can only delete a category that has no products.
-      </Text>
-      <Input
-        label="New category"
-        value={newName}
-        onChangeText={(value) => {
-          setNewName(value);
-          setError(null);
-        }}
-        autoCapitalize="words"
-        placeholder="Drinks"
-      />
       <Button
-        label={saving && !editing && !deleting ? 'Adding…' : 'Add category'}
+        variant="secondary"
+        label="Add category"
         onPress={() => {
-          void handleAdd();
+          setError(null);
+          setAddOpen(true);
         }}
-        disabled={!newName.trim() || saving}
       />
-      {error && !editing && !deleting ? <Text style={styles.error}>{error}</Text> : null}
 
       {categories.map((category) => {
         const count = usage[category.id] ?? 0;
@@ -138,9 +126,9 @@ export function CategoryManager() {
               </Text>
             </View>
             <View style={styles.actions}>
-              <Button
-                label="Rename"
-                variant="ghost"
+              <IconButton
+                icon={Pencil}
+                accessibilityLabel={`Rename ${category.name}`}
                 onPress={() => {
                   setEditing(category);
                   setEditName(category.name);
@@ -148,9 +136,10 @@ export function CategoryManager() {
                 }}
               />
               {count === 0 ? (
-                <Button
-                  label="Delete"
-                  variant="ghost"
+                <IconButton
+                  icon={Trash2}
+                  color={colors.destructive}
+                  accessibilityLabel={`Delete ${category.name}`}
                   onPress={() => {
                     setDeleting(category);
                     setError(null);
@@ -161,6 +150,38 @@ export function CategoryManager() {
           </View>
         );
       })}
+
+      <Modal
+        visible={addOpen}
+        title="New category"
+        onClose={() => {
+          if (!saving) {
+            setAddOpen(false);
+            setNewName('');
+            setError(null);
+          }
+        }}
+      >
+        <Input
+          label="Name"
+          value={newName}
+          onChangeText={(value) => {
+            setNewName(value);
+            setError(null);
+          }}
+          autoCapitalize="words"
+          placeholder="Drinks"
+          autoFocus
+        />
+        {error && addOpen ? <Text style={styles.error}>{error}</Text> : null}
+        <Button
+          label={saving ? 'Adding…' : 'Add category'}
+          onPress={() => {
+            void handleAdd();
+          }}
+          disabled={!newName.trim() || saving}
+        />
+      </Modal>
 
       <Modal
         visible={Boolean(editing)}
@@ -191,11 +212,12 @@ export function CategoryManager() {
         onClose={() => setDeleting(null)}
       >
         <Text style={styles.body}>
-          {deleting ? `${deleting.name} will be removed. Products are not deleted.` : ''}
+          {deleting ? `Delete ${deleting.name}? Products stay.` : ''}
         </Text>
         {error && deleting ? <Text style={styles.error}>{error}</Text> : null}
         <ConfirmRow
           confirmLabel={saving ? 'Deleting…' : 'Delete'}
+          destructive
           disabled={saving}
           onCancel={() => setDeleting(null)}
           onConfirm={() => {
@@ -225,12 +247,16 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   row: {
-    gap: spacing.sm,
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
   copy: {
+    flex: 1,
     gap: 2,
   },
   name: {
@@ -247,7 +273,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    alignItems: 'center',
   },
 });

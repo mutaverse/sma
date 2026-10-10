@@ -20,6 +20,7 @@ export function useStockCatalog(
   category: CategoryFilter,
   scope: CatalogScope,
   sort: CatalogSort,
+  revision = 0,
 ) {
   const db = useShopDatabase();
   const debounced = useDebouncedValue(query, SEARCH_DELAY_MS);
@@ -53,7 +54,7 @@ export function useStockCatalog(
       return () => {
         cancelled = true;
       };
-    }, [db, normalized, category, scope, sort]),
+    }, [db, normalized, category, scope, sort, revision]),
   );
 
   return {

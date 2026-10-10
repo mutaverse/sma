@@ -8,10 +8,10 @@ Currency is **GHS / GH₵**. Calendar dates are **Africa/Accra**.
 
 | Tab | Job |
 | --- | --- |
-| **Home** | Search first, then today’s sales, restock, record sales, add product |
+| **Insights** | Default tab: sales trends, weekday averages, margins, cost changes |
 | **Stock** | Browse and filter the catalogue |
 | **Sales** | One number for the day (today, yesterday, or another date). Edit in place |
-| **Insights** | Period totals vs a 30-day average, weekday averages (after enough days), margins, cost changes |
+| **MOMO** | Record cash in, cash out, and airtime. Commission is calculated automatically |
 | **Settings** (gear) | Shop name, CSV import, categories, optional cloud backup |
 
 Also:
@@ -22,14 +22,15 @@ Also:
 - **Undo latest purchase** for a product
 - **CSV import** (`name,unit,category,selling_price,cost_price,on_hand`)
 
-First launch only asks for the shop name. No account is required to work.
+Authentication is currently bypassed for local development. First launch asks for the shop name.
+The completed Supabase email/phone flow can be restored with `EXPO_PUBLIC_AUTH_REQUIRED=true`.
 
 ## Stack
 
 - Expo SDK 57, React Native 0.86, Expo Router
 - SQLite on device (`expo-sqlite`)
 - Zod, Zustand (UI state only)
-- Optional backup: Supabase Auth + Postgres (anon key only; RLS on `user_id`)
+- Supabase email/phone Auth + Postgres backup (anon key only; RLS on `user_id`)
 
 Money is stored as integer **pesewas**. Quantities are integer **thousandths**.
 
@@ -48,7 +49,8 @@ npm install
 cp .env.example .env
 ```
 
-`.env` can stay empty. The shop runs fully offline without Supabase.
+With `EXPO_PUBLIC_AUTH_REQUIRED=false`, Supabase credentials can stay empty and the app opens
+locally. Daily shop operations use SQLite.
 
 ## Run
 
@@ -75,25 +77,30 @@ npm test
 npx tsc --noEmit
 ```
 
-## Cloud backup (optional)
+## Authentication and cloud backup
 
-Internet is only needed to **save** or **restore** a backup. Signing in never blocks a shop day. If backup fails, the copy on the phone is unchanged.
+Authentication is disabled by default while the UI is being refined. When enabled, internet is
+required for initial sign-in and backup/restore; normal shop operations remain local-first.
 
 1. Create a Supabase project.
 2. Run [`supabase/schema.sql`](supabase/schema.sql) in the SQL editor.
-3. For V1, turn off **Authentication → Providers → Email → Confirm email**.
-4. Put the project URL and **anon** key in `.env`:
+3. Enable **Email** authentication.
+4. Enable **Phone** authentication and configure an SMS provider if phone sign-up will be used.
+5. Decide whether email confirmation is required. The app handles confirmation-required email
+   sign-up by asking the user to check their inbox.
+6. Put the project URL and **anon** key in `.env`:
 
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_AUTH_REQUIRED=true
 ```
 
-5. Restart Expo, open **Settings → Backup**, and use **Save a backup**.
+7. Restart Expo and create an account from the authentication screen.
 
 Never put the service-role key in the app.
 
-A new phone: install the app, name the shop, sign in with the same email — data is pulled down.
+A new phone: install the app and sign in with the same email or phone number — data is pulled down.
 
 ## Project layout
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { calculateWeekdayPerformance } from '@/lib/calculations';
 import {
+  buildCumulativeTrend,
   buildTrend,
   calculateVsAveragePercent,
   detectCostMovers,
@@ -11,7 +12,9 @@ import {
   periodRange,
   pickWeekdayExtremes,
   rankProductMargins,
+  rangeDayCount,
   salesInRange,
+  serviceSummary,
   trailingAveragePesewas,
   WEEKDAY_MIN_DAYS,
 } from '@/lib/insights';
@@ -59,9 +62,11 @@ const TWENTY_ONE_DAYS = daysFrom('2026-08-27', 21);
 describe('insight periods', () => {
   it('uses Accra calendar windows that include today', () => {
     expect(periodRange('7d', TODAY)).toEqual({ start: '2026-09-10', end: TODAY });
-    expect(periodRange('30d', TODAY)).toEqual({ start: '2026-08-18', end: TODAY });
+    expect(periodRange('15d', TODAY)).toEqual({ start: '2026-09-02', end: TODAY });
     expect(periodRange('month', TODAY)).toEqual({ start: '2026-09-01', end: TODAY });
-    expect(periodRange('year', TODAY)).toEqual({ start: '2026-01-01', end: TODAY });
+    expect(periodRange('3m', TODAY)).toEqual({ start: '2026-06-17', end: TODAY });
+    expect(periodRange('6m', TODAY)).toEqual({ start: '2026-03-17', end: TODAY });
+    expect(periodRange('year', TODAY)).toEqual({ start: '2025-09-17', end: TODAY });
   });
 });
 
@@ -112,9 +117,55 @@ describe('trends', () => {
   it('buckets a year into months', () => {
     const range = periodRange('year', TODAY);
     const points = buildTrend('year', range, TWENTY_ONE_DAYS);
-    expect(points).toHaveLength(9);
-    expect(points[7]?.key).toBe('2026-08');
-    expect(points[8]?.key).toBe('2026-09');
+    expect(points).toHaveLength(13);
+    expect(points[11]?.key).toBe('2026-08');
+    expect(points[12]?.key).toBe('2026-09');
+  });
+
+  it('uses all calendar days for service averages and accumulates from zero', () => {
+    const range = periodRange('7d', TODAY);
+    const activity = [
+      {
+        date: TODAY,
+        salesPesewas: 7000,
+        cashInPesewas: 10000,
+        cashOutPesewas: 0,
+        airtimePesewas: 0,
+        commissionPesewas: 100,
+      },
+    ];
+
+    expect(rangeDayCount(range)).toBe(7);
+    expect(serviceSummary(activity, 'sales', range)).toEqual({
+      totalPesewas: 7000,
+      averagePesewas: 1000,
+      days: 7,
+    });
+
+    const cumulative = buildCumulativeTrend('7d', range, activity, 'sales');
+    expect(cumulative).toHaveLength(8);
+    expect(cumulative[0]?.cumulativePesewas).toBe(0);
+    expect(cumulative[1]?.label).toBe('Thu');
+    expect(cumulative[1]?.detail).toBe('Thu 10 Sep');
+    expect(cumulative.at(-1)?.label).toBe('Wed');
+    expect(cumulative.at(-1)?.detail).toBe('Wed 16 Sep');
+    expect(cumulative.at(-1)?.cumulativePesewas).toBe(7000);
+  });
+
+  it('keeps chart dates readable when a range crosses a month or a year', () => {
+    const fortnight = buildCumulativeTrend('15d', periodRange('15d', TODAY), [], 'sales');
+    expect(fortnight[1]?.label).toBe('2 Sep');
+    expect(fortnight.at(-1)?.label).toBe('16 Sep');
+
+    const quarter = buildCumulativeTrend('3m', periodRange('3m', TODAY), [], 'sales');
+    expect(quarter.at(-1)?.label).toBe('16 Sep');
+    expect(quarter.at(-1)?.detail).toContain('16 Sep');
+
+    const year = buildCumulativeTrend('year', periodRange('year', TODAY), [], 'sales');
+    const labels = year.map((point) => point.label).filter(Boolean);
+    expect(labels[0]).toBe('Sep 25');
+    expect(labels.at(-1)).toBe('Sep 26');
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });
 

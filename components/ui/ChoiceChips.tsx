@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     minHeight: minTouchSize,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.medium,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     color: colors.text,
   },

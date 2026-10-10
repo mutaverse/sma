@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.xl,
+    padding: spacing.lg,
     gap: spacing.xs,
   },
   tappable: {
@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
   },
   value: {
     fontFamily: fonts.bold,
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 28,
+    lineHeight: 34,
     color: colors.text,
   },
   valueAccent: {

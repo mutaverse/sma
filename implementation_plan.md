@@ -65,16 +65,13 @@ Daily sales are a **single total**, not line items. The app therefore **cannot**
 
 Rejecting this means we should hide stock from V1 entirely, because the number will be wrong by lunchtime.
 
-### D2 — Auth is a backup gate, not a shop gate (must lock)
+### D2 — Auth opens the app; daily work remains local-first (updated 10 Oct 2026)
 
-The spec requires offline daily use **and** Supabase email/password. Those conflict if login is a boot blocker.
-
-**Recommendation:**
-
-- First launch: local onboarding only (business name). App works immediately, offline.
-- Cloud account lives in Settings: “Save a backup” / “Sign in”. Needs internet **once**.
-- Session persisted on device. If refresh fails, the shop keeps working; sync status becomes “Backup paused”.
-- `user_id` is stamped onto rows when the account is linked. Until then, sync is disabled.
+- After startup, users sign in or create an account using email/password or phone/password.
+- Sign-up also captures the company name.
+- The session persists on the device. Normal shop operations read and write SQLite first.
+- Internet is required for initial authentication and backup/restore, not each daily operation.
+- `user_id` is stamped onto syncable rows after authentication.
 
 ### D3 — How products get into the app (must lock)
 
@@ -334,7 +331,7 @@ Relative size assumes one experienced engineer, Android-first. S ≈ 1–2 days,
 - Persist `app_settings` locally (GHS, GH₵, Africa/Accra)
 - Greeting name on Home (“Good morning” + business name)
 - Settings: business name edit, currency display (locked to GHS in V1 but stored, not hardcoded in every screen)
-- No Supabase Auth yet (that is Phase 11). Optional: create the Supabase project and wire the client as a no-op so env is proven.
+- Supabase Auth was originally deferred to Phase 11; it now gates app entry per updated D2.
 
 **Experience bar**
 
@@ -566,7 +563,7 @@ This is the first build the owner can trial for **price lookup only**, even befo
 **Build**
 
 - Supabase project: Postgres tables mirroring local domain, RLS on `user_id = auth.uid()`
-- Auth: email + password from Settings (“Save a backup”)
+- Auth: persisted email/password or phone/password session; account creation includes company name
 - Persist session with Supabase RN/Expo auth
 - Sync engine: drain `sync_queue` domain events, idempotent upserts keyed by UUID
 - Pull: after push, fetch remote rows `updated_at > last_pulled_at` and apply locally (LWW for product current state, settings, daily sales; immutable insert for purchases/price_history/stock_counts)

@@ -6,6 +6,7 @@ export const REMOTE_TABLES = [
   'price_history',
   'daily_sales',
   'stock_counts',
+  'momo_transactions',
 ] as const;
 
 export type RemoteTable = (typeof REMOTE_TABLES)[number];
@@ -86,6 +87,20 @@ export const TABLE_COLUMNS: Record<RemoteTable, readonly string[]> = {
     'created_at',
     'updated_at',
   ],
+  momo_transactions: [
+    'id',
+    'user_id',
+    'transaction_type',
+    'provider',
+    'amount',
+    'fee',
+    'customer_reference',
+    'transaction_date',
+    'note',
+    'created_at',
+    'updated_at',
+    'deleted_at',
+  ],
 };
 
 export const LWW_TABLES = new Set<RemoteTable>([
@@ -94,6 +109,7 @@ export const LWW_TABLES = new Set<RemoteTable>([
   'products',
   'purchases',
   'daily_sales',
+  'momo_transactions',
 ]);
 
 export const INSERT_IGNORE_TABLES = new Set<RemoteTable>(['price_history', 'stock_counts']);
@@ -109,6 +125,8 @@ export const INTEGER_COLUMNS = new Set([
   'selling_price',
   'cost_price',
   'total_sales',
+  'amount',
+  'fee',
 ]);
 
 export const SETTINGS_LOCAL_ONLY_COLUMNS = ['last_pulled_at'] as const;

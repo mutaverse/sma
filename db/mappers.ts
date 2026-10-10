@@ -1,7 +1,8 @@
-import type { ProductUnit } from '@/constants/catalog';
+import type { MomoProvider, MomoTransactionType, ProductUnit } from '@/constants/catalog';
 import type {
   CategoryRecord,
   DailySaleRecord,
+  MomoTransactionRecord,
   PriceHistoryRecord,
   ProductRecord,
   PurchaseRecord,
@@ -13,6 +14,7 @@ import type {
   AppSettings,
   Category,
   DailySale,
+  MomoTransaction,
   PriceHistory,
   Product,
   Purchase,
@@ -100,6 +102,23 @@ export function mapStockCount(row: StockCountRecord): StockCount {
     quantityThousandths: row.quantity,
     countedAt: row.counted_at,
     createdAt: row.created_at,
+  };
+}
+
+export function mapMomoTransaction(row: MomoTransactionRecord): MomoTransaction {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    transactionType: row.transaction_type as MomoTransactionType,
+    provider: row.provider as MomoProvider,
+    amountPesewas: row.amount,
+    feePesewas: row.fee,
+    customerReference: row.customer_reference,
+    transactionDate: row.transaction_date,
+    note: row.note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
   };
 }
 

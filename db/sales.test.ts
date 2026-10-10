@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { migrate } from '@/db/migrate';
 import { createNodeSqliteClient } from '@/db/node-sqlite';
-import { getDailySale, listDailySales, upsertDailySales } from '@/db/repositories/sales';
+import { deleteDailySale, getDailySale, listDailySales, upsertDailySales } from '@/db/repositories/sales';
 import { listPendingSyncEvents } from '@/db/repositories/sync-queue';
 
 async function setup() {
@@ -64,5 +64,22 @@ describe('daily sales', () => {
         totalSalesPesewas: -1,
       }),
     ).rejects.toThrow(/cannot be negative/);
+  });
+
+  it('removes a saved day from the list', async () => {
+    const db = await setup();
+    await upsertDailySales(db, {
+      saleDate: '2026-09-16',
+      totalSalesPesewas: 42000,
+    });
+
+    await deleteDailySale(db, '2026-09-16');
+
+    expect(await getDailySale(db, '2026-09-16')).toBeNull();
+    expect(await listDailySales(db)).toHaveLength(0);
+    const queue = await listPendingSyncEvents(db);
+    expect(queue.some((item) => item.operation === 'sale.upsert' && item.payload.includes('"deleted":true'))).toBe(
+      true,
+    );
   });
 });

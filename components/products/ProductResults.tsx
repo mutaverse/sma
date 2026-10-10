@@ -40,7 +40,7 @@ export function ProductResults({
       return (
         <EmptyState
           title={`No products match “${query}”`}
-          body="Check the spelling, or add it so the next customer does not have to wait."
+          body="Try another spelling or add a product."
           action={
             <Button
               label="Add product"
@@ -55,7 +55,7 @@ export function ProductResults({
     return (
       <EmptyState
         title="No products yet"
-        body="Add your first product to look up prices here while a customer waits."
+        body="Add a product to search prices."
         action={<Button label="Add product" onPress={() => router.push('/products/add')} />}
       />
     );
@@ -63,7 +63,7 @@ export function ProductResults({
 
   return (
     <Card>
-      <SectionHeader title={resultsTitle ?? (searching ? 'Results' : 'Recent products')} />
+      <SectionHeader title={resultsTitle ?? (searching ? 'Results' : 'Recent')} />
       {products.map((product, index) => (
         <View key={product.id}>
           {index > 0 ? <View style={styles.separator} /> : null}

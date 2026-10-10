@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { colors } from '@/constants/colors';
@@ -6,17 +7,32 @@ import { fonts } from '@/constants/typography';
 
 type InputProps = TextInputProps & {
   label?: string;
+  description?: string;
+  error?: string;
 };
 
-export function Input({ label, style, ...rest }: InputProps) {
+export function Input({ label, description, error, style, onFocus, onBlur, ...rest }: InputProps) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.wrap}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.textSecondary}
-        style={[styles.field, style]}
+        style={[styles.field, focused ? styles.focused : null, error ? styles.invalid : null, style]}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
+        aria-invalid={Boolean(error)}
         {...rest}
       />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!error && description ? <Text style={styles.description}>{description}</Text> : null}
     </View>
   );
 }
@@ -34,12 +50,31 @@ const styles = StyleSheet.create({
   field: {
     minHeight: minTouchSize,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.input,
     borderRadius: radii.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
     fontFamily: fonts.regular,
     fontSize: 16,
     color: colors.text,
+  },
+  focused: {
+    borderColor: colors.ring,
+    borderWidth: 2,
+  },
+  invalid: {
+    borderColor: colors.destructive,
+  },
+  description: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.mutedForeground,
+  },
+  error: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.destructive,
   },
 });

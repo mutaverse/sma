@@ -1,4 +1,9 @@
-import type { ProductUnit, SyncOperation } from '@/constants/catalog';
+import type {
+  MomoProvider,
+  MomoTransactionType,
+  ProductUnit,
+  SyncOperation,
+} from '@/constants/catalog';
 
 export type Product = {
   id: string;
@@ -68,6 +73,21 @@ export type StockCount = {
   quantityThousandths: number;
   countedAt: string;
   createdAt: string;
+};
+
+export type MomoTransaction = {
+  id: string;
+  userId: string | null;
+  transactionType: MomoTransactionType;
+  provider: MomoProvider;
+  amountPesewas: number;
+  feePesewas: number;
+  customerReference: string | null;
+  transactionDate: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 };
 
 export type AppSettings = {

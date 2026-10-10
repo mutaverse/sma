@@ -59,6 +59,30 @@ export async function upsertDailySales(db: DbClient, input: UpsertDailySalesInpu
   };
 }
 
+export async function deleteDailySale(db: DbClient, saleDate: string): Promise<void> {
+  const existing = await db.getFirstAsync<DailySaleRecord>(
+    'SELECT * FROM daily_sales WHERE sale_date = ? AND deleted_at IS NULL',
+    [saleDate],
+  );
+  if (!existing) {
+    return;
+  }
+
+  const timestamp = nowIso();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'UPDATE daily_sales SET deleted_at = ?, updated_at = ? WHERE id = ?',
+      [timestamp, timestamp, existing.id],
+    );
+    await enqueueSyncEvent(db, {
+      entityType: 'sale',
+      entityId: existing.id,
+      operation: 'sale.upsert',
+      payload: { id: existing.id, saleDate, deleted: true },
+    });
+  });
+}
+
 export async function getDailySale(db: DbClient, saleDate: string): Promise<DailySale | null> {
   const row = await db.getFirstAsync<DailySaleRecord>(
     'SELECT * FROM daily_sales WHERE sale_date = ? AND deleted_at IS NULL',
