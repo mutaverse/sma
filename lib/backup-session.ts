@@ -76,7 +76,7 @@ export async function stopBackupAccount(): Promise<void> {
 
 function applySession(session: Session): void {
   useSyncStore.getState().setBackupAccount({
-    email: session.user.email ?? null,
+    email: session.user.email ?? session.user.phone ?? null,
     userId: session.user.id,
   });
 }

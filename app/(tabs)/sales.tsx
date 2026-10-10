@@ -1,25 +1,19 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Check, Plus } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { FieldLabel } from '@/components/products/ProductChrome';
+import { ConfirmRow, FieldLabel } from '@/components/products/ProductChrome';
+import { SalesHistoryTable } from '@/components/sales/SalesHistoryTable';
 import { Button } from '@/components/ui/Button';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Input } from '@/components/ui/Input';
-import { SectionHeader } from '@/components/ui/SectionHeader';
+import { Modal } from '@/components/ui/Modal';
 import { colors } from '@/constants/colors';
-import { minTouchSize, spacing } from '@/constants/layout';
+import { minTouchSize, radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
 import { useShopDatabase } from '@/db/database';
-import { getDailySale, listDailySales, upsertDailySales } from '@/db/repositories/sales';
+import { deleteDailySale, getDailySale, listDailySales, upsertDailySales } from '@/db/repositories/sales';
 import {
   cedisStringFromPesewas,
   formatPesewas,
@@ -50,18 +44,20 @@ export default function SalesScreen() {
   const [history, setHistory] = useState<DailySale[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [entryOpen, setEntryOpen] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [pendingAmount, setPendingAmount] = useState<number | null>(null);
 
   const today = todayAccra();
   const parsedAmount = pesewasFromCedisInput(amount);
-  const pastDays = history.filter((row) => row.saleDate !== selectedDate);
 
   const loadDate = useCallback(
     async (saleDate: string) => {
       const [sale, days] = await Promise.all([getDailySale(db, saleDate), listDailySales(db)]);
       setExisting(sale);
       setHistory(days);
-      setAmount(sale ? cedisStringFromPesewas(sale.totalPesewas) : '');
     },
     [db],
   );
@@ -86,7 +82,7 @@ export default function SalesScreen() {
   function applyPreset(preset: DatePreset) {
     setDatePreset(preset);
     setError(null);
-    setSaved(null);
+    setSaved(false);
     if (preset === 'today') {
       setSelectedDate(todayAccra());
       return;
@@ -101,7 +97,7 @@ export default function SalesScreen() {
   function applyOtherDate(value: string) {
     setOtherDate(value);
     setError(null);
-    setSaved(null);
+    setSaved(false);
     try {
       setSelectedDate(parseShopDate(value));
     } catch {
@@ -109,10 +105,54 @@ export default function SalesScreen() {
     }
   }
 
-  function openDay(saleDate: string) {
+  function openEntry() {
     setError(null);
-    setSaved(null);
+    setSaved(false);
+    setDatePreset('today');
+    setSelectedDate(todayAccra());
+    setAmount('');
+    setEntryOpen(true);
+  }
+
+  function closeEntry() {
+    if (saving) {
+      return;
+    }
+    setEntryOpen(false);
+    setDeleteOpen(false);
+    setError(null);
+    setAmount('');
+  }
+
+  async function handleDelete() {
+    if (saving) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await deleteDailySale(db, selectedDate);
+      setDeleteOpen(false);
+      setEntryOpen(false);
+      setAmount('');
+      setSaved(true);
+      await loadDate(selectedDate);
+    } catch (caught) {
+      setError(userMessage(caught, "We could not delete this day's sales. Please try again."));
+      setDeleteOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openDay(saleDate: string) {
+    const row = history.find((item) => item.saleDate === saleDate);
+    setError(null);
+    setSaved(false);
     setSelectedDate(saleDate);
+    setAmount(row ? cedisStringFromPesewas(row.totalPesewas) : '');
+    setEntryOpen(true);
     if (saleDate === todayAccra()) {
       setDatePreset('today');
       return;
@@ -125,6 +165,17 @@ export default function SalesScreen() {
     setOtherDate(formatDayMonthYear(saleDate));
   }
 
+  async function persistSale(saleDate: string, totalSalesPesewas: number) {
+    await upsertDailySales(db, { saleDate, totalSalesPesewas });
+    setSelectedDate(saleDate);
+    setAmount('');
+    setSaved(true);
+    setEntryOpen(false);
+    setReplaceOpen(false);
+    setPendingAmount(null);
+    await loadDate(saleDate);
+  }
+
   async function handleSave() {
     if (saving) {
       return;
@@ -132,32 +183,34 @@ export default function SalesScreen() {
 
     setSaving(true);
     setError(null);
-    setSaved(null);
+    setSaved(false);
 
     try {
       if (!amount.trim()) {
         throw new Error("Enter the day's sales.");
       }
       if (parsedAmount === null) {
-        throw new Error('Enter a valid amount in cedis, up to two decimal places.');
+        throw new Error('Enter amount with up to 2 decimals.');
       }
 
       const saleDate =
         datePreset === 'other' && otherDate.trim() ? parseShopDate(otherDate) : selectedDate;
+      const current = await getDailySale(db, saleDate);
+      if (current) {
+        if (current.totalPesewas === parsedAmount) {
+          setSaved(true);
+          setAmount('');
+          setEntryOpen(false);
+          return;
+        }
+        setExisting(current);
+        setPendingAmount(parsedAmount);
+        setSelectedDate(saleDate);
+        setReplaceOpen(true);
+        return;
+      }
 
-      await upsertDailySales(db, {
-        saleDate,
-        totalSalesPesewas: parsedAmount,
-      });
-      setSelectedDate(saleDate);
-      await loadDate(saleDate);
-      setSaved(
-        saleDate === todayAccra()
-          ? existing
-            ? "Today's sales updated."
-            : "Today's sales saved."
-          : `Saved for ${formatDisplayDate(saleDate)}.`,
-      );
+      await persistSale(saleDate, parsedAmount);
     } catch (caught) {
       setError(userMessage(caught, "We could not save this day's sales. Please try again."));
     } finally {
@@ -165,24 +218,60 @@ export default function SalesScreen() {
     }
   }
 
-  const isToday = selectedDate === today;
-  const buttonLabel = existing
-    ? isToday
-      ? "Update today's sales"
-      : 'Update sales'
-    : 'Save sales';
-  const unchanged = existing !== null && parsedAmount === existing.totalPesewas;
-  const canSave = parsedAmount !== null && !unchanged && !saving;
+  async function confirmReplace() {
+    if (pendingAmount === null || saving) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await persistSale(selectedDate, pendingAmount);
+    } catch (caught) {
+      setError(userMessage(caught, "We could not save this day's sales. Please try again."));
+      setReplaceOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canSave = parsedAmount !== null && !saving;
+  const editingSale = history.find((row) => row.saleDate === selectedDate) ?? null;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-    >
+    <View style={styles.flex}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.heading}>
+          <View>
+            <Text style={styles.eyebrow}>SALES</Text>
+            <Text style={styles.date}>{formatLongDisplayDate(today)}</Text>
+          </View>
+          {saved ? (
+            <View style={styles.savedRow}>
+              <Check size={18} color={colors.primary} strokeWidth={2.5} />
+              <Text style={styles.saved}>Saved</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Button label="Record sales" icon={Plus} onPress={openEntry} />
+
+        <View style={styles.history}>
+          <SalesHistoryTable
+            rows={history}
+            currencySymbol={currencySymbol}
+            onOpenDay={openDay}
+          />
+        </View>
+      </ScrollView>
+
+      <Modal
+        visible={entryOpen && !replaceOpen && !deleteOpen}
+        title={editingSale ? 'Edit sales' : 'Record sales'}
+        onClose={closeEntry}
       >
         <ChoiceChips
           options={[
@@ -193,27 +282,19 @@ export default function SalesScreen() {
           value={datePreset}
           onChange={applyPreset}
         />
-
-        <Text style={styles.date}>{formatLongDisplayDate(selectedDate)}</Text>
-        {isToday ? null : <Text style={styles.notToday}>Closing a different day.</Text>}
-
-        <Text style={styles.preview}>
-          {parsedAmount === null ? `${currencySymbol} —` : formatPesewas(parsedAmount, currencySymbol)}
-        </Text>
-
+        <Text style={styles.sheetDate}>{formatLongDisplayDate(selectedDate)}</Text>
         <Input
-          label="Total sales"
+          label={`Total sales (${currencySymbol})`}
           value={amount}
           onChangeText={(value) => {
             setAmount(value);
             setError(null);
-            setSaved(null);
+            setSaved(false);
           }}
           keyboardType="decimal-pad"
-          placeholder="0"
+          placeholder="0.00"
           style={styles.amount}
         />
-
         {datePreset === 'other' ? (
           <FieldLabel label="Date">
             <Input
@@ -224,43 +305,74 @@ export default function SalesScreen() {
             />
           </FieldLabel>
         ) : null}
-
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {saved ? <Text style={styles.saved}>{saved}</Text> : null}
-
         <Button
-          label={saving ? 'Saving…' : buttonLabel}
+          label={saving ? 'Saving…' : 'Save sales'}
           onPress={() => {
             void handleSave();
           }}
           disabled={!canSave}
         />
+        {editingSale ? (
+          <Button
+            label="Delete"
+            variant="destructive"
+            disabled={saving}
+            onPress={() => setDeleteOpen(true)}
+          />
+        ) : null}
+      </Modal>
 
-        <View style={styles.history}>
-          <SectionHeader title="Past days" />
-          {pastDays.length === 0 ? (
-            <Text style={styles.empty}>
-              Past evenings will show here. Tap one to change that day's total.
-            </Text>
-          ) : (
-            pastDays.map((row) => (
-              <Pressable
-                key={row.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatDisplayDate(row.saleDate)}, ${formatPesewas(row.totalPesewas, currencySymbol)}`}
-                onPress={() => openDay(row.saleDate)}
-                style={({ pressed }) => [styles.dayRow, pressed ? styles.pressed : null]}
-              >
-                <Text style={styles.dayDate}>{formatDisplayDate(row.saleDate)}</Text>
-                <Text style={styles.dayAmount}>
-                  {formatPesewas(row.totalPesewas, currencySymbol)}
-                </Text>
-              </Pressable>
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Modal
+        visible={replaceOpen}
+        title="Replace this day?"
+        onClose={() => {
+          if (!saving) {
+            setReplaceOpen(false);
+          }
+        }}
+      >
+        <Text style={styles.replaceCopy}>
+          {formatDisplayDate(selectedDate)} already has{' '}
+          {formatPesewas(existing?.totalPesewas ?? 0, currencySymbol)}. Replace it with{' '}
+          {formatPesewas(pendingAmount ?? 0, currencySymbol)}?
+        </Text>
+        <ConfirmRow
+          confirmLabel={saving ? 'Saving…' : 'Replace'}
+          disabled={saving}
+          onCancel={() => setReplaceOpen(false)}
+          onConfirm={() => {
+            void confirmReplace();
+          }}
+        />
+      </Modal>
+
+      <Modal
+        visible={deleteOpen}
+        title="Delete this day?"
+        onClose={() => {
+          if (!saving) {
+            setDeleteOpen(false);
+          }
+        }}
+      >
+        <Text style={styles.replaceCopy}>
+          {formatDisplayDate(selectedDate)} of{' '}
+          {formatPesewas(editingSale?.totalPesewas ?? existing?.totalPesewas ?? 0, currencySymbol)} will
+          be removed.
+        </Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <ConfirmRow
+          confirmLabel={saving ? 'Deleting…' : 'Delete'}
+          destructive
+          disabled={saving}
+          onCancel={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            void handleDelete();
+          }}
+        />
+      </Modal>
+    </View>
   );
 }
 
@@ -274,29 +386,32 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
     gap: spacing.lg,
   },
+  heading: {
+    gap: spacing.sm,
+  },
+  eyebrow: {
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 1.2,
+    color: colors.primary,
+  },
   date: {
     fontFamily: fonts.bold,
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 24,
+    lineHeight: 30,
     color: colors.text,
   },
-  notToday: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textSecondary,
-    marginTop: -spacing.sm,
-  },
-  preview: {
-    fontFamily: fonts.bold,
-    fontSize: 40,
-    lineHeight: 48,
-    color: colors.primary,
+  sheetDate: {
+    fontFamily: fonts.semibold,
+    fontSize: 18,
+    lineHeight: 24,
+    color: colors.text,
   },
   amount: {
     minHeight: 64,
-    fontFamily: fonts.semibold,
-    fontSize: 28,
+    fontFamily: fonts.bold,
+    fontSize: 30,
   },
   error: {
     fontFamily: fonts.medium,
@@ -304,45 +419,30 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.error,
   },
+  savedRow: {
+    minHeight: minTouchSize,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   saved: {
-    fontFamily: fonts.medium,
-    fontSize: 14,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
     lineHeight: 20,
     color: colors.primary,
   },
   history: {
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  empty: {
+  replaceCopy: {
     fontFamily: fonts.regular,
     fontSize: 15,
     lineHeight: 22,
-    color: colors.textSecondary,
-  },
-  dayRow: {
-    minHeight: minTouchSize,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  dayDate: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
-    lineHeight: 22,
     color: colors.text,
-  },
-  dayAmount: {
-    fontFamily: fonts.medium,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.text,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

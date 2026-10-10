@@ -58,12 +58,8 @@ export function describeUndoLatestPurchase(
       : 'no selling price yet';
 
   const lines = [
-    input.clampedToZero
-      ? `On hand is already lower than this purchase, so it will go to 0 ${input.unit}.`
-      : `This removes ${removed} from on hand.`,
-    `On hand will be ${nextStock}.`,
-    `Cost will go back to ${cost}.`,
-    `Selling price will go back to ${selling}.`,
+    input.clampedToZero ? `Remove ${removed} · stock → 0 ${input.unit}.` : `Remove ${removed} · stock → ${nextStock}.`,
+    `Prices → cost ${cost} · selling ${selling}.`,
   ];
 
   return lines.join('\n');

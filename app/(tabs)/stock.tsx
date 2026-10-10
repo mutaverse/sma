@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { Check, Plus } from 'lucide-react-native';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AddProductForm } from '@/components/products/AddProductForm';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FilterChips } from '@/components/ui/FilterChips';
+import { Modal } from '@/components/ui/Modal';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { Tabs } from '@/components/ui/Tabs';
 import { colors } from '@/constants/colors';
 import { minTouchSize, radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
@@ -21,12 +25,23 @@ export default function StockScreen() {
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [scope, setScope] = useState<CatalogScope>('active');
   const [sort, setSort] = useState<CatalogSort>('recent');
+  const [addOpen, setAddOpen] = useState(false);
+  const [formKey, setFormKey] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [revision, setRevision] = useState(0);
   const { products, categories, ready, searching, activeQuery } = useStockCatalog(
     query,
     category,
     scope,
     sort,
+    revision,
   );
+
+  function openAdd() {
+    setSaved(false);
+    setFormKey((current) => current + 1);
+    setAddOpen(true);
+  }
 
   const chipOptions = useMemo(
     () => [
@@ -41,33 +56,28 @@ export default function StockScreen() {
     if (scope === 'hidden') {
       if (searching) {
         return {
-          title: `No hidden products match “${activeQuery}”`,
-          body: 'Hidden products stay out of Home search until you show them again.',
+          title: `No hidden match for “${activeQuery}”`,
         };
       }
       return {
         title: 'No hidden products',
-        body: 'Products you hide from search will show up here.',
       };
     }
 
     if (searching) {
       return {
-        title: `No products match “${activeQuery}”`,
-        body: 'Try another name, or add it so the next customer does not have to wait.',
+        title: `No match for “${activeQuery}”`,
       };
     }
 
     if (category !== 'all') {
       return {
-        title: 'Nothing in this category yet',
-        body: 'Add a product here, or pick another category.',
+        title: 'Nothing in this category',
       };
     }
 
     return {
       title: 'No products yet',
-      body: 'Add your first product to browse stock, prices, and margins here.',
     };
   }
 
@@ -83,19 +93,33 @@ export default function StockScreen() {
           onChange={(value) => setCategory(value)}
         />
         <View style={styles.toolbar}>
-          <SortChip
-            label="Recently viewed"
-            selected={sort === 'recent'}
-            onPress={() => setSort('recent')}
-          />
-          <SortChip label="A–Z" selected={sort === 'name'} onPress={() => setSort('name')} />
-          <View style={styles.toolbarSpacer} />
-          <SortChip
-            label="Hidden"
-            selected={scope === 'hidden'}
-            accent
-            onPress={() => setScope((current) => (current === 'hidden' ? 'active' : 'hidden'))}
-          />
+          <View style={styles.sortTabs}>
+            <Tabs
+              value={scope === 'hidden' ? 'hidden' : sort}
+              options={[
+                { value: 'recent', label: 'Recent' },
+                { value: 'name', label: 'A–Z' },
+                { value: 'hidden', label: 'Hidden' },
+              ]}
+              onValueChange={(value) => {
+                if (value === 'hidden') {
+                  setScope('hidden');
+                  return;
+                }
+                setScope('active');
+                setSort(value);
+              }}
+            />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add product"
+            onPress={openAdd}
+            style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}
+          >
+            <Plus size={17} color={colors.primaryForeground} />
+            <Text style={styles.addLabel}>Add</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -105,22 +129,30 @@ export default function StockScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <ProductCard
             product={item}
             currencySymbol={currencySymbol}
+            first={index === 0}
+            last={index === products.length - 1}
             onPress={() => router.push(`/products/${item.id}`)}
           />
         )}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListHeaderComponent={
+          saved ? (
+            <View style={styles.savedRow}>
+              <Check size={18} color={colors.primary} strokeWidth={2.5} />
+              <Text style={styles.saved}>Saved</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           ready ? (
             <EmptyState
               title={empty.title}
-              body={empty.body}
               action={
                 scope === 'active' ? (
-                  <Button label="Add product" onPress={() => router.push('/products/add')} />
+                  <Button label="Add product" onPress={openAdd} />
                 ) : undefined
               }
             />
@@ -128,52 +160,17 @@ export default function StockScreen() {
         }
       />
 
-      {products.length > 0 ? (
-        <View style={styles.footer}>
-          <Button label="Add product" onPress={() => router.push('/products/add')} />
-          <Button
-            label="Add purchase"
-            variant="secondary"
-            onPress={() => router.push('/purchases/add')}
-          />
-        </View>
-      ) : null}
+      <Modal visible={addOpen} title="Add product" onClose={() => setAddOpen(false)}>
+        <AddProductForm
+          key={formKey}
+          onSaved={() => {
+            setAddOpen(false);
+            setSaved(true);
+            setRevision((current) => current + 1);
+          }}
+        />
+      </Modal>
     </View>
-  );
-}
-
-function SortChip({
-  label,
-  selected,
-  onPress,
-  accent = false,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  accent?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={[
-        styles.sortChip,
-        selected && !accent ? styles.sortSelected : null,
-        selected && accent ? styles.sortAccent : null,
-      ]}
-    >
-      <Text
-        style={[
-          styles.sortLabel,
-          selected && !accent ? styles.sortSelectedLabel : null,
-          selected && accent ? styles.sortAccentLabel : null,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -189,12 +186,11 @@ const styles = StyleSheet.create({
   },
   toolbar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
     paddingBottom: spacing.sm,
   },
-  toolbarSpacer: {
+  sortTabs: {
     flex: 1,
   },
   list: {
@@ -206,43 +202,36 @@ const styles = StyleSheet.create({
   separator: {
     height: spacing.md,
   },
-  footer: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-    gap: spacing.md,
-  },
-  sortChip: {
+  addButton: {
     minHeight: minTouchSize,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
   },
-  sortSelected: {
-    backgroundColor: colors.primaryMuted,
-    borderColor: colors.primary,
-  },
-  sortAccent: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  sortLabel: {
-    fontFamily: fonts.medium,
+  addLabel: {
+    fontFamily: fonts.semibold,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.text,
+    color: colors.primaryForeground,
   },
-  sortSelectedLabel: {
+  pressed: {
+    opacity: 0.72,
+  },
+  savedRow: {
+    minHeight: minTouchSize,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  saved: {
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 20,
     color: colors.primary,
-  },
-  sortAccentLabel: {
-    color: colors.accentText,
   },
 });

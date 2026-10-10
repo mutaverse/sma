@@ -9,16 +9,15 @@ import {
   View,
 } from 'react-native';
 
-import { FieldLabel, MetricBlock } from '@/components/products/ProductChrome';
+import { FieldLabel } from '@/components/products/ProductChrome';
 import { ProductResults } from '@/components/products/ProductResults';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Input } from '@/components/ui/Input';
-import { ProductRow } from '@/components/ui/ProductRow';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/layout';
+import { radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
 import { useShopDatabase } from '@/db/database';
 import { getProduct } from '@/db/repositories/products';
@@ -35,7 +34,6 @@ import {
 } from '@/lib/dates';
 import { userMessage } from '@/lib/errors';
 import { tryPreviewPurchase } from '@/lib/purchase-preview';
-import { formatThousandths } from '@/lib/quantity';
 import { formatSellingPrice } from '@/lib/product-display';
 import { useAppStore } from '@/store/app-store';
 import type { Product } from '@/types/domain';
@@ -147,19 +145,15 @@ export default function AddPurchaseScreen() {
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {hydrating ? null : product ? (
-          <Card>
-            <FieldLabel label="Product">
-              <ProductRow
-                name={product.name}
-                price={formatSellingPrice(product, currencySymbol)}
-              />
-            </FieldLabel>
-            <Button
-              label="Change product"
-              variant="ghost"
-              onPress={() => setProduct(null)}
-            />
-          </Card>
+          <View style={styles.productRow}>
+            <View style={styles.productCopy}>
+              <Text style={styles.productName} numberOfLines={1}>
+                {product.name}
+              </Text>
+              <Text style={styles.productPrice}>{formatSellingPrice(product, currencySymbol)}</Text>
+            </View>
+            <Button label="Change" variant="ghost" onPress={() => setProduct(null)} />
+          </View>
         ) : (
           <View style={styles.picker}>
             <SearchInput
@@ -182,84 +176,60 @@ export default function AddPurchaseScreen() {
 
         {product ? (
           <>
-            <Input
-              label={`Quantity (${product.unit})`}
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="decimal-pad"
-              placeholder="24"
-            />
-            <Input
-              label="Total purchase cost"
-              value={totalCost}
-              onChangeText={setTotalCost}
-              keyboardType="decimal-pad"
-              placeholder="564"
-            />
-            <Input
-              label="Selling price / unit"
-              value={selling}
-              onChangeText={setSelling}
-              keyboardType="decimal-pad"
-              placeholder="28"
-            />
-
-            <FieldLabel label="Purchase date">
-              <Text style={styles.dateDisplay}>
-                {formatDisplayDate(datePreset === 'other' && otherDate ? (safeParseDate(otherDate) ?? purchaseDate) : purchaseDate)}
-              </Text>
-              <ChoiceChips
-                options={[
-                  { value: 'today' as const, label: 'Today' },
-                  { value: 'yesterday' as const, label: 'Yesterday' },
-                  { value: 'other' as const, label: 'Other' },
-                ]}
-                value={datePreset}
-                onChange={applyDatePreset}
+            <Card style={styles.formCard}>
+              <Input
+                label={`Quantity (${product.unit})`}
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="decimal-pad"
+                placeholder="24"
               />
-              {datePreset === 'other' ? (
-                <Input
-                  value={otherDate}
-                  onChangeText={setOtherDate}
-                  placeholder="16/09/2026"
-                  keyboardType="numbers-and-punctuation"
-                />
-              ) : null}
-            </FieldLabel>
+              <Input
+                label="Total cost"
+                value={totalCost}
+                onChangeText={setTotalCost}
+                keyboardType="decimal-pad"
+                placeholder="564"
+              />
+              <Input
+                label="Selling / unit"
+                value={selling}
+                onChangeText={setSelling}
+                keyboardType="decimal-pad"
+                placeholder="28"
+              />
 
-            <Card>
-              {preview ? (
-                <View style={styles.preview}>
-                  <MetricBlock
-                    label="Unit cost"
-                    value={formatPesewas(preview.unitCostPesewas, currencySymbol)}
-                    large
-                  />
-                  <Text style={styles.worksheet}>
-                    {formatPesewas(preview.totalCostPesewas, currencySymbol)} /{' '}
-                    {formatThousandths(preview.quantityThousandths)} ={' '}
-                    {formatPesewas(preview.unitCostPesewas, currencySymbol)}
-                  </Text>
-                  <View style={styles.previewGrid}>
-                    <MetricBlock
-                      label="Profit / unit"
-                      value={formatPesewas(preview.profitPesewas, currencySymbol)}
-                    />
-                    <MetricBlock label="Margin" value={formatMarginTenths(preview.marginTenths)} />
-                  </View>
-                  <MetricBlock
-                    label="Expected total profit"
-                    value={formatPesewas(preview.expectedProfitPesewas, currencySymbol)}
-                    large
-                  />
-                </View>
-              ) : (
-                <Text style={styles.previewHint}>
-                  Enter quantity, total cost, and selling price to see unit cost, profit, and
-                  margin before you save.
+              <FieldLabel label="Date">
+                <Text style={styles.dateDisplay}>
+                  {formatDisplayDate(datePreset === 'other' && otherDate ? (safeParseDate(otherDate) ?? purchaseDate) : purchaseDate)}
                 </Text>
-              )}
+                <ChoiceChips
+                  options={[
+                    { value: 'today' as const, label: 'Today' },
+                    { value: 'yesterday' as const, label: 'Yesterday' },
+                    { value: 'other' as const, label: 'Other' },
+                  ]}
+                  value={datePreset}
+                  onChange={applyDatePreset}
+                />
+                {datePreset === 'other' ? (
+                  <Input
+                    value={otherDate}
+                    onChangeText={setOtherDate}
+                    placeholder="16/09/2026"
+                    keyboardType="numbers-and-punctuation"
+                  />
+                ) : null}
+              </FieldLabel>
             </Card>
+
+            {preview ? (
+              <View style={styles.preview}>
+                <PreviewRow label="Unit cost" value={formatPesewas(preview.unitCostPesewas, currencySymbol)} first />
+                <PreviewRow label="Profit" value={formatPesewas(preview.profitPesewas, currencySymbol)} />
+                <PreviewRow label="Margin" value={formatMarginTenths(preview.marginTenths)} />
+              </View>
+            ) : null}
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -274,6 +244,15 @@ export default function AddPurchaseScreen() {
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function PreviewRow({ label, value, first = false }: { label: string; value: string; first?: boolean }) {
+  return (
+    <View style={[styles.previewRow, first ? styles.previewFirst : null]}>
+      <Text style={styles.previewLabel}>{label}</Text>
+      <Text style={styles.previewValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -298,31 +277,67 @@ const styles = StyleSheet.create({
   picker: {
     gap: spacing.lg,
   },
-  dateDisplay: {
-    fontFamily: fonts.semibold,
-    fontSize: 22,
-    lineHeight: 28,
-    color: colors.text,
-  },
-  preview: {
+  formCard: {
     gap: spacing.lg,
   },
-  previewGrid: {
+  dateDisplay: {
+    fontFamily: fonts.semibold,
+    fontSize: 18,
+    lineHeight: 24,
+    color: colors.text,
+  },
+  productRow: {
+    minHeight: 48,
     flexDirection: 'row',
-    gap: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  worksheet: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSecondary,
-    marginTop: -spacing.sm,
+  productCopy: {
+    flex: 1,
+    gap: 2,
   },
-  previewHint: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
+  productName: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
     lineHeight: 22,
+    color: colors.text,
+  },
+  productPrice: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.textSecondary,
+  },
+  preview: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+  },
+  previewFirst: {
+    borderTopWidth: 0,
+  },
+  previewRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  previewLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
+  },
+  previewValue: {
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.text,
   },
   error: {
     fontFamily: fonts.medium,

@@ -15,7 +15,9 @@ export const COST_CHANGE_HIGHLIGHT_TENTHS = 50;
 export const TOP_MARGINS_LIMIT = 8;
 export const COST_MOVERS_LIMIT = 10;
 
-export type InsightPeriod = '7d' | '30d' | 'month' | 'year';
+export type InsightPeriod = '7d' | '15d' | 'month' | '3m' | '6m' | 'year';
+
+export type InsightMetric = 'sales' | 'cashIn' | 'cashOut' | 'airtime' | 'commission';
 
 export type DateRange = {
   start: string;
@@ -26,6 +28,20 @@ export type TrendPoint = {
   key: string;
   label: string;
   totalPesewas: number;
+};
+
+export type DailyActivityPoint = {
+  date: string;
+  salesPesewas: number;
+  cashInPesewas: number;
+  cashOutPesewas: number;
+  airtimePesewas: number;
+  commissionPesewas: number;
+};
+
+export type CumulativePoint = TrendPoint & {
+  cumulativePesewas: number;
+  detail: string;
 };
 
 export type ProductMargin = {
@@ -58,26 +74,75 @@ export function periodRange(period: InsightPeriod, today: string): DateRange {
   if (period === '7d') {
     return { start: addCalendarDays(today, -6), end: today };
   }
-  if (period === '30d') {
-    return { start: addCalendarDays(today, -(TRAILING_AVERAGE_DAYS - 1)), end: today };
+  if (period === '15d') {
+    return { start: addCalendarDays(today, -14), end: today };
   }
   if (period === 'month') {
     return { start: `${today.slice(0, 7)}-01`, end: today };
   }
-  return { start: `${today.slice(0, 4)}-01-01`, end: today };
+  const months = period === '3m' ? 3 : period === '6m' ? 6 : 12;
+  return { start: addCalendarDays(shiftCalendarMonths(today, -months), 1), end: today };
 }
 
 export function periodTitle(period: InsightPeriod): string {
   if (period === '7d') {
     return 'Last 7 days';
   }
-  if (period === '30d') {
-    return 'Last 30 days';
+  if (period === '15d') {
+    return 'Last 15 days';
   }
   if (period === 'month') {
     return 'This month';
   }
-  return 'This year';
+  if (period === '3m') {
+    return 'Last 3 months';
+  }
+  if (period === '6m') {
+    return 'Last 6 months';
+  }
+  return 'Last year';
+}
+
+function shiftCalendarMonths(calendarDate: string, amount: number): string {
+  const [year, month, day] = calendarDate.split('-').map((part) => Number.parseInt(part, 10));
+  const target = new Date(Date.UTC(year, month - 1 + amount, 1));
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return [
+    target.getUTCFullYear(),
+    String(target.getUTCMonth() + 1).padStart(2, '0'),
+    String(target.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+export function rangeDayCount(range: DateRange): number {
+  return eachCalendarDate(range.start, range.end).length;
+}
+
+export function metricValue(point: DailyActivityPoint, metric: InsightMetric): number {
+  if (metric === 'sales') return point.salesPesewas;
+  if (metric === 'cashIn') return point.cashInPesewas;
+  if (metric === 'cashOut') return point.cashOutPesewas;
+  if (metric === 'airtime') return point.airtimePesewas;
+  return point.commissionPesewas;
+}
+
+export function serviceSummary(
+  points: readonly DailyActivityPoint[],
+  metric: InsightMetric,
+  range: DateRange,
+): { totalPesewas: number; averagePesewas: number; days: number } {
+  const days = rangeDayCount(range);
+  const totalPesewas = points
+    .filter((point) => point.date >= range.start && point.date <= range.end)
+    .reduce((sum, point) => sum + metricValue(point, metric), 0);
+  return {
+    totalPesewas,
+    averagePesewas: days === 0 ? 0 : Math.round(totalPesewas / days),
+    days,
+  };
 }
 
 export function salesInRange(sales: readonly DailySale[], range: DateRange): DailySale[] {
@@ -173,18 +238,132 @@ function dayNumber(calendarDate: string): string {
   return String(Number.parseInt(calendarDate.slice(8, 10), 10));
 }
 
+function dayMonth(calendarDate: string): string {
+  return `${dayNumber(calendarDate)} ${monthShort(calendarDate.slice(0, 7))}`;
+}
+
+function weekdayDate(calendarDate: string): string {
+  return `${weekdayShort(calendarDate)} ${dayMonth(calendarDate)}`;
+}
+
+function rangeDetail(start: string, end: string): string {
+  if (start === end) {
+    return weekdayDate(start);
+  }
+  if (start.slice(0, 7) === end.slice(0, 7)) {
+    return `${dayNumber(start)}–${dayMonth(end)}`;
+  }
+  return `${dayMonth(start)} – ${dayMonth(end)}`;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function monthShort(yearMonth: string): string {
-  const [year, month] = yearMonth.split('-').map((part) => Number.parseInt(part, 10));
-  return new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year, month - 1, 1)),
-  );
+  const month = Number.parseInt(yearMonth.slice(5, 7), 10);
+  return MONTHS[month - 1] ?? yearMonth;
 }
 
 function weekdayShort(calendarDate: string): string {
   const [year, month, day] = calendarDate.split('-').map((part) => Number.parseInt(part, 10));
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year, month - 1, day)),
-  );
+  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? calendarDate;
+}
+
+function activityTotalsByDate(
+  points: readonly DailyActivityPoint[],
+  metric: InsightMetric,
+  range: DateRange,
+): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const point of points) {
+    if (point.date >= range.start && point.date <= range.end) {
+      totals.set(point.date, metricValue(point, metric));
+    }
+  }
+  return totals;
+}
+
+function sumActivityRange(totals: Map<string, number>, start: string, end: string): number {
+  return eachCalendarDate(start, end).reduce((sum, date) => sum + (totals.get(date) ?? 0), 0);
+}
+
+export function buildCumulativeTrend(
+  period: InsightPeriod,
+  range: DateRange,
+  points: readonly DailyActivityPoint[],
+  metric: InsightMetric,
+): CumulativePoint[] {
+  const totals = activityTotalsByDate(points, metric, range);
+  const buckets: CumulativePoint[] = [];
+
+  if (period === 'year') {
+    let cursor = `${range.start.slice(0, 7)}-01`;
+    const lastMonth = `${range.end.slice(0, 7)}-01`;
+    while (cursor <= lastMonth) {
+      const nextMonth = shiftCalendarMonths(cursor, 1);
+      const bucketStart = cursor < range.start ? range.start : cursor;
+      const monthEnd = addCalendarDays(nextMonth, -1);
+      const bucketEnd = monthEnd > range.end ? range.end : monthEnd;
+      const key = cursor.slice(0, 7);
+      buckets.push({
+        key,
+        label: monthShort(key),
+        detail: `${monthShort(key)} ${key.slice(0, 4)}`,
+        totalPesewas: sumActivityRange(totals, bucketStart, bucketEnd),
+        cumulativePesewas: 0,
+      });
+      cursor = nextMonth;
+    }
+    const monthCounts = new Map<string, number>();
+    for (const bucket of buckets) {
+      monthCounts.set(bucket.label, (monthCounts.get(bucket.label) ?? 0) + 1);
+    }
+    for (const bucket of buckets) {
+      if ((monthCounts.get(bucket.label) ?? 0) > 1) {
+        bucket.label = `${bucket.label} ${bucket.key.slice(2, 4)}`;
+      }
+    }
+  } else if (period === '3m' || period === '6m') {
+    let cursor = range.start;
+    while (cursor <= range.end) {
+      const bucketEnd = addCalendarDays(cursor, 6) > range.end
+        ? range.end
+        : addCalendarDays(cursor, 6);
+      buckets.push({
+        key: cursor,
+        label: dayMonth(bucketEnd),
+        detail: rangeDetail(cursor, bucketEnd),
+        totalPesewas: sumActivityRange(totals, cursor, bucketEnd),
+        cumulativePesewas: 0,
+      });
+      cursor = addCalendarDays(bucketEnd, 1);
+    }
+  } else {
+    for (const date of eachCalendarDate(range.start, range.end)) {
+      buckets.push({
+        key: date,
+        label: period === '7d' ? weekdayShort(date) : period === '15d' ? dayMonth(date) : dayNumber(date),
+        detail: weekdayDate(date),
+        totalPesewas: totals.get(date) ?? 0,
+        cumulativePesewas: 0,
+      });
+    }
+  }
+
+  let cumulativePesewas = 0;
+  return [
+    {
+      key: `${range.start}-baseline`,
+      label: '',
+      detail: '',
+      totalPesewas: 0,
+      cumulativePesewas: 0,
+    },
+    ...buckets.map((point) => {
+      cumulativePesewas += point.totalPesewas;
+      return { ...point, cumulativePesewas };
+    }),
+  ];
 }
 
 export function buildTrend(
@@ -198,20 +377,25 @@ export function buildTrend(
   }
 
   if (period === 'year') {
-    const year = range.end.slice(0, 4);
-    const lastMonth = Number.parseInt(range.end.slice(5, 7), 10);
     const points: TrendPoint[] = [];
-    for (let month = 1; month <= lastMonth; month += 1) {
-      const key = `${year}-${String(month).padStart(2, '0')}`;
+    let cursor = `${range.start.slice(0, 7)}-01`;
+    const lastMonth = `${range.end.slice(0, 7)}-01`;
+    while (cursor <= lastMonth) {
+      const key = cursor.slice(0, 7);
+      const nextMonth = shiftCalendarMonths(cursor, 1);
+      const start = cursor < range.start ? range.start : cursor;
+      const monthEnd = addCalendarDays(nextMonth, -1);
+      const end = monthEnd > range.end ? range.end : monthEnd;
       const totalPesewas = salesInRange(sales, range)
-        .filter((sale) => sale.saleDate.startsWith(key))
+        .filter((sale) => sale.saleDate >= start && sale.saleDate <= end)
         .reduce((sum, sale) => sum + sale.totalPesewas, 0);
       points.push({ key, label: monthShort(key), totalPesewas });
+      cursor = nextMonth;
     }
     return points;
   }
 
-  if (period === '30d') {
+  if (period === '3m' || period === '6m') {
     const points: TrendPoint[] = [];
     let cursor = mondayOf(range.start);
     const lastMonday = mondayOf(range.end);

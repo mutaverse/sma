@@ -1,6 +1,8 @@
 import type { DbClient } from '@/db/client';
 import { INITIAL_SCHEMA_SQL, seedDefaultCategories } from '@/db/migrations/001_initial';
 import { addLastPulledAt } from '@/db/migrations/002_last_pulled_at';
+import { addMomoTransactions } from '@/db/migrations/003_momo_transactions';
+import { allowMomoAirtime } from '@/db/migrations/004_momo_airtime';
 import { nowIso } from '@/lib/dates';
 
 const MIGRATIONS = [
@@ -16,6 +18,16 @@ const MIGRATIONS = [
     version: 2,
     name: '002_last_pulled_at',
     up: addLastPulledAt,
+  },
+  {
+    version: 3,
+    name: '003_momo_transactions',
+    up: addMomoTransactions,
+  },
+  {
+    version: 4,
+    name: '004_momo_airtime',
+    up: allowMomoAirtime,
   },
 ] as const;
 

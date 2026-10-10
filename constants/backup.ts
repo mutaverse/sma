@@ -7,4 +7,4 @@ export const BACKUP_NEEDS_INTERNET_ONCE =
   'Needs internet this once. After that, the shop still works without it.';
 
 export const BACKUP_NOT_CONFIGURED =
-  'Cloud backup is not set up on this install. Your shop data is still on this phone.';
+  'Backup not configured. Data stays on this device.';

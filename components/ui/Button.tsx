@@ -6,7 +6,7 @@ import { colors } from '@/constants/colors';
 import { minTouchSize, radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 
 type ButtonProps = {
   label: string;
@@ -43,14 +43,20 @@ export function Button({
       {Icon ? (
         <Icon
           size={18}
-          color={variant === 'primary' ? colors.surface : colors.primary}
+          color={
+            variant === 'primary' || variant === 'destructive'
+              ? colors.primaryForeground
+              : colors.primary
+          }
           strokeWidth={2.25}
         />
       ) : null}
       <Text
         style={[
           styles.label,
-          variant === 'primary' ? styles.labelOnPrimary : styles.labelOnLight,
+          variant === 'primary' || variant === 'destructive'
+            ? styles.labelOnPrimary
+            : styles.labelOnLight,
         ]}
       >
         {label}
@@ -105,7 +111,7 @@ const styles = StyleSheet.create({
   base: {
     minHeight: minTouchSize,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -117,13 +123,19 @@ const styles = StyleSheet.create({
   primaryPressed: {
     backgroundColor: colors.primaryPressed,
   },
+  destructive: {
+    backgroundColor: colors.destructive,
+  },
+  destructivePressed: {
+    opacity: 0.84,
+  },
   secondary: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.secondary,
     borderWidth: 1,
     borderColor: colors.border,
   },
   secondaryPressed: {
-    backgroundColor: colors.background,
+    opacity: 0.72,
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -140,7 +152,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   labelOnPrimary: {
-    color: colors.surface,
+    color: colors.primaryForeground,
   },
   labelOnLight: {
     color: colors.primary,
@@ -168,4 +180,5 @@ const pressedByVariant = {
   primary: styles.primaryPressed,
   secondary: styles.secondaryPressed,
   ghost: styles.ghostPressed,
+  destructive: styles.destructivePressed,
 } as const;

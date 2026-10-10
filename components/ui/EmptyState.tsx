@@ -9,7 +9,7 @@ import { fonts } from '@/constants/typography';
 type EmptyStateProps = {
   icon?: LucideIcon;
   title: string;
-  body: string;
+  body?: string;
   action?: ReactNode;
 };
 
@@ -18,7 +18,7 @@ export function EmptyState({ icon: Icon, title, body, action }: EmptyStateProps)
     <View style={styles.wrap}>
       {Icon ? <Icon size={28} color={colors.textSecondary} strokeWidth={1.75} /> : null}
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.body}>{body}</Text>
+      {body ? <Text style={styles.body}>{body}</Text> : null}
       {action ? <View style={styles.action}>{action}</View> : null}
     </View>
   );

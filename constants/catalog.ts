@@ -10,6 +10,12 @@ export const PRODUCT_UNITS = [
 
 export type ProductUnit = (typeof PRODUCT_UNITS)[number];
 
+export const MOMO_PROVIDERS = ['MTN', 'Telecel', 'AirtelTigo'] as const;
+export type MomoProvider = (typeof MOMO_PROVIDERS)[number];
+
+export const MOMO_TRANSACTION_TYPES = ['cash_in', 'cash_out', 'airtime'] as const;
+export type MomoTransactionType = (typeof MOMO_TRANSACTION_TYPES)[number];
+
 export const SYNC_OPERATIONS = [
   'product.upsert',
   'category.upsert',
@@ -18,6 +24,7 @@ export const SYNC_OPERATIONS = [
   'sale.upsert',
   'stock.count_set',
   'settings.upsert',
+  'momo.upsert',
 ] as const;
 
 export type SyncOperation = (typeof SYNC_OPERATIONS)[number];

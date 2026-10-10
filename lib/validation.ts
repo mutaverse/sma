@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { PRODUCT_UNITS } from '@/constants/catalog';
+import {
+  MOMO_PROVIDERS,
+  MOMO_TRANSACTION_TYPES,
+  PRODUCT_UNITS,
+} from '@/constants/catalog';
 import { isCalendarDate } from '@/lib/dates';
 
 const uuid = z.uuid();
@@ -46,8 +50,19 @@ export const upsertSettingsSchema = z.object({
   timezone: z.string().min(1),
 });
 
+export const recordMomoTransactionSchema = z.object({
+  transactionType: z.enum(MOMO_TRANSACTION_TYPES),
+  provider: z.enum(MOMO_PROVIDERS),
+  amountPesewas: z.number().int().positive('Amount must be greater than zero.'),
+  feePesewas: z.number().int().nonnegative('Fee cannot be negative.'),
+  customerReference: z.string().trim().max(80).optional(),
+  transactionDate: calendarDateSchema,
+  note: z.string().trim().max(200).optional(),
+});
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type RecordPurchaseInput = z.infer<typeof recordPurchaseSchema>;
 export type RecordStockCountInput = z.infer<typeof recordStockCountSchema>;
 export type UpsertDailySalesInput = z.infer<typeof upsertDailySalesSchema>;
 export type UpsertSettingsInput = z.infer<typeof upsertSettingsSchema>;
+export type RecordMomoTransactionInput = z.infer<typeof recordMomoTransactionSchema>;

@@ -4,13 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { SectionHeader } from '@/components/ui/SectionHeader';
 import { SyncStatusChip } from '@/components/ui/SyncStatusChip';
-import {
-  BACKUP_NEEDS_INTERNET_ONCE,
-  BACKUP_NOT_CONFIGURED,
-  BACKUP_STILL_ON_PHONE,
-} from '@/constants/backup';
+import { BACKUP_STILL_ON_PHONE } from '@/constants/backup';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
@@ -99,9 +94,11 @@ export function BackupCard() {
 
   return (
     <>
-      <SectionHeader title="Backup" action={<SyncStatusChip />} />
+      <View style={styles.status}>
+        <SyncStatusChip />
+      </View>
       {!configured ? (
-        <Text style={styles.body}>{BACKUP_NOT_CONFIGURED}</Text>
+        <Text style={styles.body}>Not set up. Data stays on this phone.</Text>
       ) : signedIn ? (
         <SignedInBackup
           email={email ?? trimmedEmail}
@@ -159,13 +156,8 @@ function SignInBackup({
 }) {
   return (
     <View style={styles.block}>
-      <Text style={styles.body}>
-        Your shop data lives on this phone first. Sign in to save a copy in the cloud so a new phone
-        can restore it.
-      </Text>
-      <Text style={styles.body}>{BACKUP_NEEDS_INTERNET_ONCE}</Text>
       {!online ? (
-        <Text style={styles.error}>Connect to the internet this once to save a backup.</Text>
+        <Text style={styles.error}>Connect to save a backup.</Text>
       ) : null}
       <Input
         label="Email"
@@ -220,7 +212,6 @@ function SignedInBackup({
 
   return (
     <View style={styles.block}>
-      <Text style={styles.body}>Backups save when this phone is online. The shop still works if they pause.</Text>
       <View style={styles.row}>
         <Text style={styles.label}>Signed in</Text>
         <Text style={styles.value}>{email}</Text>
@@ -239,12 +230,15 @@ function SignedInBackup({
         onPress={onBackupNow}
         disabled={busy || !online}
       />
-      <Button label="Stop using this backup" variant="secondary" onPress={onStop} disabled={busy} />
+      <Button label="Sign out of backup" variant="secondary" onPress={onStop} disabled={busy} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  status: {
+    alignItems: 'flex-start',
+  },
   block: {
     gap: spacing.md,
   },

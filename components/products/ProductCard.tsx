@@ -12,9 +12,11 @@ type ProductCardProps = {
   product: Product;
   currencySymbol: string;
   onPress: () => void;
+  first?: boolean;
+  last?: boolean;
 };
 
-export function ProductCard({ product, currencySymbol, onPress }: ProductCardProps) {
+export function ProductCard({ product, currencySymbol, onPress, first = false, last = false }: ProductCardProps) {
   const metrics = productGlanceMetrics(product, currencySymbol);
 
   return (
@@ -22,7 +24,12 @@ export function ProductCard({ product, currencySymbol, onPress }: ProductCardPro
       accessibilityRole="button"
       accessibilityLabel={`${product.name}, ${formatSellingPrice(product, currencySymbol)}, ${metrics.stock}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [
+        styles.card,
+        first ? styles.first : null,
+        last ? styles.last : null,
+        pressed ? styles.pressed : null,
+      ]}
     >
       <View style={styles.top}>
         <Text style={styles.name} numberOfLines={2}>
@@ -48,11 +55,23 @@ const styles = StyleSheet.create({
   card: {
     minHeight: minTouchSize,
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
+  },
+  first: {
+    borderTopWidth: 1,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+  },
+  last: {
+    borderBottomWidth: 1,
+    borderBottomLeftRadius: radii.lg,
+    borderBottomRightRadius: radii.lg,
   },
   pressed: {
     opacity: 0.7,

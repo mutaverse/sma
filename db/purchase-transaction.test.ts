@@ -3,7 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { migrate } from '@/db/migrate';
 import { createNodeSqliteClient } from '@/db/node-sqlite';
 import { createProduct, getProduct } from '@/db/repositories/products';
-import { recordPurchase, undoLatestPurchase, listPriceHistory, previewUndoLatestPurchase } from '@/db/repositories/purchases';
+import {
+  deletePurchase,
+  listPriceHistory,
+  listPurchaseHistory,
+  previewUndoLatestPurchase,
+  recordPurchase,
+  undoLatestPurchase,
+  updatePurchase,
+} from '@/db/repositories/purchases';
 import { listPendingSyncEvents } from '@/db/repositories/sync-queue';
 import type { DbClient } from '@/db/client';
 
@@ -139,5 +147,65 @@ describe('purchase transaction', () => {
     expect(preview.nextCostPesewas).toBe(2280);
     expect(preview.nextSellingPesewas).toBe(2700);
     expect(preview.clampedToZero).toBe(false);
+  });
+
+  it('edits any purchase and keeps stock and the latest prices in step', async () => {
+    const { db, product } = await setup();
+    const older = await recordPurchase(db, {
+      productId: product.id,
+      quantityThousandths: 2000,
+      totalCostPesewas: 4000,
+      sellingPricePesewas: 2600,
+      purchaseDate: '2026-09-01',
+    });
+    await recordPurchase(db, {
+      productId: product.id,
+      quantityThousandths: 1000,
+      totalCostPesewas: 2500,
+      sellingPricePesewas: 3000,
+      purchaseDate: '2026-09-15',
+    });
+
+    await updatePurchase(db, older.id, {
+      productId: product.id,
+      quantityThousandths: 3000,
+      totalCostPesewas: 6000,
+      sellingPricePesewas: 2700,
+      purchaseDate: '2026-09-01',
+    });
+
+    const updated = await getProduct(db, product.id);
+    expect(updated?.currentStockThousandths).toBe(4000);
+    expect(updated?.currentCostPesewas).toBe(2500);
+    expect(updated?.currentSellingPesewas).toBe(3000);
+
+    const history = await listPriceHistory(db, product.id);
+    expect(history.find((row) => row.purchaseId === older.id)?.costPesewas).toBe(2000);
+  });
+
+  it('deletes an older purchase without restoring later prices', async () => {
+    const { db, product } = await setup();
+    const older = await recordPurchase(db, {
+      productId: product.id,
+      quantityThousandths: 2000,
+      totalCostPesewas: 4000,
+      sellingPricePesewas: 2600,
+      purchaseDate: '2026-09-01',
+    });
+    await recordPurchase(db, {
+      productId: product.id,
+      quantityThousandths: 1000,
+      totalCostPesewas: 2500,
+      sellingPricePesewas: 3000,
+      purchaseDate: '2026-09-15',
+    });
+
+    await deletePurchase(db, older.id);
+
+    const updated = await getProduct(db, product.id);
+    expect(updated?.currentStockThousandths).toBe(1000);
+    expect(updated?.currentCostPesewas).toBe(2500);
+    expect(updated?.currentSellingPesewas).toBe(3000);
+    expect(await listPurchaseHistory(db, product.id)).toHaveLength(1);
   });
 });

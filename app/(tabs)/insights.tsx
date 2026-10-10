@@ -1,238 +1,167 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BarChart } from '@/components/insights/BarChart';
-import { MetricBlock } from '@/components/products/ProductChrome';
-import { Badge } from '@/components/ui/Badge';
+import { LineChart } from '@/components/insights/LineChart';
 import { Card } from '@/components/ui/Card';
 import { FilterChips } from '@/components/ui/FilterChips';
-import { SectionHeader } from '@/components/ui/SectionHeader';
-import { StatCard } from '@/components/ui/StatCard';
+import { Spinner } from '@/components/ui/Spinner';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/layout';
+import { minTouchSize, radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
 import { useShopDatabase } from '@/db/database';
 import { loadInsightSources, type InsightSources } from '@/db/repositories/insights';
 import { formatPesewas } from '@/lib/currency';
-import { formatIsoDateForDisplay, todayAccra } from '@/lib/dates';
+import { todayAccra } from '@/lib/dates';
 import {
-  buildTrend,
-  calculateVsAveragePercent,
-  detectCostMovers,
-  formatCostChange,
-  formatSignedPercent,
-  isHighlightedCostChange,
+  buildCumulativeTrend,
   periodRange,
   periodTitle,
-  periodTotals,
-  pickWeekdayExtremes,
-  rankProductMargins,
-  salesInRange,
-  trailingAveragePesewas,
-  weekdayLabel,
-  WEEKDAY_MIN_DAYS,
+  serviceSummary,
+  type InsightMetric,
   type InsightPeriod,
 } from '@/lib/insights';
-import { formatMarginTenths } from '@/lib/calculations';
 import { useAppStore } from '@/store/app-store';
 
 const PERIODS: { value: InsightPeriod; label: string }[] = [
   { value: '7d', label: '7d' },
-  { value: '30d', label: '30d' },
+  { value: '15d', label: '15d' },
   { value: 'month', label: 'Month' },
+  { value: '3m', label: '3M' },
+  { value: '6m', label: '6M' },
   { value: 'year', label: 'Year' },
+];
+
+const METRICS: { value: InsightMetric; label: string }[] = [
+  { value: 'sales', label: 'Sales' },
+  { value: 'cashIn', label: 'Cash in' },
+  { value: 'cashOut', label: 'Cash out' },
+  { value: 'airtime', label: 'Airtime' },
+  { value: 'commission', label: 'Commission' },
 ];
 
 export default function InsightsScreen() {
   const db = useShopDatabase();
   const currencySymbol = useAppStore((state) => state.settings?.currencySymbol) ?? 'GH₵';
   const [period, setPeriod] = useState<InsightPeriod>('7d');
+  const [metric, setMetric] = useState<InsightMetric>('sales');
   const [sources, setSources] = useState<InsightSources | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      void loadInsightSources(db).then((next) => {
-        if (!cancelled) {
-          setSources(next);
-        }
-      });
+      const range = periodRange(period, todayAccra());
+      setLoading(true);
+      void loadInsightSources(db, range)
+        .then((next) => {
+          if (!cancelled) setSources(next);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
       return () => {
         cancelled = true;
       };
-    }, [db]),
+    }, [db, period]),
   );
 
-  if (!sources) {
-    return <View style={styles.flex} />;
+  if (!sources && loading) {
+    return (
+      <View style={[styles.flex, styles.loading]}>
+        <Spinner />
+      </View>
+    );
   }
 
   const today = todayAccra();
-  const todaySale = sources.sales.find((sale) => sale.saleDate === today) ?? null;
-  const average = trailingAveragePesewas(sources.sales, today);
-  const vsAverage =
-    todaySale && average !== null
-      ? calculateVsAveragePercent(todaySale.totalPesewas, average)
-      : null;
   const range = periodRange(period, today);
-  const periodSales = salesInRange(sources.sales, range);
-  const totals = periodTotals(periodSales);
-  const extremes = pickWeekdayExtremes(periodSales);
-  const trend = buildTrend(period, range, sources.sales);
-  const margins = rankProductMargins(sources.products);
-  const movers = detectCostMovers(sources.products, sources.costHistory);
-  const weekdayRemaining = Math.max(0, WEEKDAY_MIN_DAYS - periodSales.length);
+  const daily = sources?.daily ?? [];
+  const summaries = Object.fromEntries(
+    METRICS.map((item) => [item.value, serviceSummary(daily, item.value, range)]),
+  ) as Record<InsightMetric, ReturnType<typeof serviceSummary>>;
+  const selected = METRICS.find((item) => item.value === metric) ?? METRICS[0];
+  const selectedSummary = summaries[metric];
+  const trend = buildCumulativeTrend(period, range, daily, metric);
 
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>INSIGHTS</Text>
+        <Text style={styles.title}>{periodTitle(period)}</Text>
+      </View>
+
       <FilterChips
         options={PERIODS}
         value={period}
         onChange={(value) => setPeriod(value as InsightPeriod)}
       />
 
-      <View>
-        <SectionHeader title="Today" />
-        <View style={styles.stack}>
-          <StatCard
-            label="Today's sales"
-            value={
-              todaySale
-                ? formatPesewas(todaySale.totalPesewas, currencySymbol)
-                : `${currencySymbol} —`
-            }
-            hint={todaySale ? undefined : 'Record the close on the Sales tab.'}
-            accent
-          />
-          <View style={styles.grid}>
-            <Card style={styles.gridCard}>
-              <MetricBlock
-                label="Average day"
-                value={average === null ? '—' : formatPesewas(average, currencySymbol)}
-              />
-              <Text style={styles.caption}>Last 30 days you recorded, not including today.</Text>
-            </Card>
-            <Card style={styles.gridCard}>
-              <MetricBlock
-                label="vs average"
-                value={vsAverage === null ? '—' : formatSignedPercent(vsAverage)}
-              />
-            </Card>
+      <Card style={styles.chartCard}>
+        <View style={styles.chartTop}>
+          <View>
+            <Text style={styles.chartLabel}>{selected.label} total</Text>
+            <Text style={styles.chartValue} numberOfLines={1} adjustsFontSizeToFit>
+              {formatPesewas(selectedSummary.totalPesewas, currencySymbol)}
+            </Text>
           </View>
+          {loading ? <Spinner size={18} /> : null}
         </View>
-      </View>
+        <Text style={styles.chartMeta}>
+          {formatPesewas(selectedSummary.averagePesewas, currencySymbol)} / day
+        </Text>
+        <LineChart points={trend} currencySymbol={currencySymbol} />
+      </Card>
 
-      <View>
-        <SectionHeader title={periodTitle(period)} />
-        {totals.recordedDays === 0 ? (
-          <Text style={styles.body}>No closing totals in this period yet.</Text>
-        ) : (
-          <View style={styles.stack}>
-            <StatCard
-              label="Sales"
-              value={formatPesewas(totals.totalPesewas, currencySymbol)}
-              hint={`${totals.recordedDays} recorded ${totals.recordedDays === 1 ? 'day' : 'days'}`}
-            />
-            <Card>
-              <MetricBlock
-                label="Average / day"
-                value={
-                  totals.averagePesewas === null
-                    ? '—'
-                    : formatPesewas(totals.averagePesewas, currencySymbol)
-                }
-              />
-            </Card>
-            {extremes ? (
-              <View style={styles.grid}>
-                <Card style={styles.gridCard}>
-                  <MetricBlock label="Busiest weekday" value={weekdayLabel(extremes.best.weekday)} />
-                  <Text style={styles.caption}>
-                    {formatPesewas(extremes.best.averagePesewas, currencySymbol)} average
-                  </Text>
-                </Card>
-                <Card style={styles.gridCard}>
-                  <MetricBlock
-                    label="Quietest weekday"
-                    value={weekdayLabel(extremes.lowest.weekday)}
-                  />
-                  <Text style={styles.caption}>
-                    {formatPesewas(extremes.lowest.averagePesewas, currencySymbol)} average
-                  </Text>
-                </Card>
-              </View>
-            ) : (
-              <Text style={styles.body}>
-                {periodSales.length < WEEKDAY_MIN_DAYS
-                  ? `${weekdayRemaining} more recorded ${weekdayRemaining === 1 ? 'day' : 'days'} and we'll name the busiest and quietest weekdays.`
-                  : 'Not enough different weekdays yet to name a busiest and quietest day.'}
-              </Text>
-            )}
-            {trend.some((point) => point.totalPesewas > 0) ? (
-              <Card>
-                <Text style={styles.chartLabel}>Sales</Text>
-                <BarChart points={trend} />
-              </Card>
-            ) : null}
-          </View>
-        )}
-      </View>
-
-      <View>
-        <SectionHeader title="Top margins" />
-        {margins.length === 0 ? (
-          <Text style={styles.body}>
-            Add a selling price and cost on products to see margins here.
-          </Text>
-        ) : (
-          <Card>
-            {margins.map((row, index) => (
-              <View key={row.productId} style={[styles.row, index === 0 ? styles.rowFirst : null]}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                  {row.name}
-                </Text>
-                <Text style={styles.rowValue}>{formatMarginTenths(row.marginTenths)}</Text>
-              </View>
-            ))}
-          </Card>
-        )}
-      </View>
-
-      <View>
-        <SectionHeader title="Cost changes" />
-        {movers.length === 0 ? (
-          <Text style={styles.body}>
-            Cost changes will show here after a purchase with a new unit cost.
-          </Text>
-        ) : (
-          <Card>
-            {movers.map((row, index) => (
-              <View
-                key={`${row.productId}-${row.recordedAt}`}
-                style={[styles.mover, index === 0 ? styles.rowFirst : null]}
-              >
-                <View style={styles.moverTop}>
-                  <Text style={styles.rowName} numberOfLines={1}>
-                    {row.productName}
-                  </Text>
-                  <Badge
-                    label={formatCostChange(row.changeTenths)}
-                    variant={isHighlightedCostChange(row.changeTenths) ? 'accent' : 'neutral'}
-                  />
-                </View>
-                <Text style={styles.caption}>
-                  {formatPesewas(row.previousCostPesewas, currencySymbol)} →{' '}
-                  {formatPesewas(row.currentCostPesewas, currencySymbol)}
-                  {' · '}
-                  {formatIsoDateForDisplay(row.recordedAt)}
-                </Text>
-              </View>
-            ))}
-          </Card>
-        )}
+      <View style={styles.group}>
+        {METRICS.map((item, index) => (
+          <MetricRow
+            key={item.value}
+            label={item.label}
+            total={formatPesewas(summaries[item.value].totalPesewas, currencySymbol)}
+            average={`${formatPesewas(summaries[item.value].averagePesewas, currencySymbol)} / day`}
+            selected={metric === item.value}
+            first={index === 0}
+            onPress={() => setMetric(item.value)}
+          />
+        ))}
       </View>
     </ScrollView>
+  );
+}
+
+function MetricRow({
+  label,
+  total,
+  average,
+  selected,
+  first,
+  onPress,
+}: {
+  label: string;
+  total: string;
+  average: string;
+  selected: boolean;
+  first: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.metricRow, first ? null : styles.metricDivider, selected ? styles.metricSelected : null]}
+    >
+      <View style={styles.metricCopy}>
+        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={styles.metricAverage} numberOfLines={1}>
+          {average}
+        </Text>
+      </View>
+      <Text style={styles.metricTotal} numberOfLines={1}>
+        {total}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -244,75 +173,102 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.xl,
     paddingBottom: spacing.xxxl,
-    gap: spacing.xxl,
+    gap: spacing.xl,
     backgroundColor: colors.background,
   },
-  stack: {
-    gap: spacing.md,
+  loading: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  grid: {
+  header: {
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 1.2,
+    color: colors.primary,
+  },
+  title: {
+    fontFamily: fonts.bold,
+    fontSize: 26,
+    lineHeight: 32,
+    color: colors.text,
+  },
+  chartCard: {
+    gap: spacing.sm,
+    overflow: 'hidden',
+  },
+  chartTop: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: spacing.md,
-  },
-  gridCard: {
-    flex: 1,
-  },
-  body: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
-  caption: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
   },
   chartLabel: {
     fontFamily: fonts.medium,
     fontSize: 14,
     lineHeight: 20,
     color: colors.textSecondary,
+  },
+  chartValue: {
+    marginTop: 2,
+    fontFamily: fonts.bold,
+    fontSize: 30,
+    lineHeight: 36,
+    color: colors.text,
+  },
+  chartMeta: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.primary,
     marginBottom: spacing.sm,
   },
-  row: {
+  group: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+  },
+  metricRow: {
+    minHeight: minTouchSize,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    paddingVertical: spacing.md,
+  },
+  metricDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  rowFirst: {
-    borderTopWidth: 0,
-    paddingTop: 0,
+  metricSelected: {
+    backgroundColor: colors.primaryMuted,
   },
-  rowName: {
+  metricCopy: {
     flex: 1,
+    gap: 2,
+  },
+  metricLabel: {
     fontFamily: fonts.medium,
     fontSize: 16,
     lineHeight: 22,
     color: colors.text,
   },
-  rowValue: {
+  metricTotal: {
     fontFamily: fonts.semibold,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
     color: colors.text,
   },
-  mover: {
-    gap: 4,
-    paddingVertical: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  moverTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+  metricAverage: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textSecondary,
   },
 });

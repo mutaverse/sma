@@ -71,6 +71,21 @@ export type StockCountRecord = {
   updated_at: string;
 };
 
+export type MomoTransactionRecord = {
+  id: string;
+  user_id: string | null;
+  transaction_type: string;
+  provider: string;
+  amount: number;
+  fee: number;
+  customer_reference: string | null;
+  transaction_date: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type SettingsRecord = {
   id: string;
   user_id: string | null;

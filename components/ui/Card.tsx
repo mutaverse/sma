@@ -18,10 +18,10 @@ export function Card({ children, style, ...rest }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
 });

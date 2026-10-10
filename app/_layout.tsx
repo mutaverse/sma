@@ -74,13 +74,13 @@ export default function RootLayout() {
           <Stack
             screenOptions={{
               headerShadowVisible: false,
-              headerTintColor: colors.primary,
+              headerTintColor: colors.foreground,
               headerTitleStyle: {
                 fontFamily: fonts.semibold,
                 fontSize: 18,
                 color: colors.text,
               },
-              headerStyle: { backgroundColor: colors.background },
+              headerStyle: { backgroundColor: colors.surface },
               contentStyle: { backgroundColor: colors.background },
             }}
           >

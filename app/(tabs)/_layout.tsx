@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Banknote, Home, Package, TrendingUp } from 'lucide-react-native';
+import { Banknote, Package, Smartphone, TrendingUp } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SettingsGear } from '@/components/navigation/SettingsGear';
@@ -8,15 +8,20 @@ import { fonts } from '@/constants/typography';
 
 const TAB_BAR_CONTENT_HEIGHT = 56;
 
+export const unstable_settings = {
+  initialRouteName: 'insights',
+};
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const tabBarBottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
+      initialRouteName="insights"
       screenOptions={{
         headerShadowVisible: false,
-        headerStyle: { backgroundColor: colors.background },
+        headerStyle: { backgroundColor: colors.surface },
         headerTitleStyle: {
           fontFamily: fonts.semibold,
           fontSize: 18,
@@ -31,8 +36,9 @@ export default function TabLayout() {
           fontSize: 12,
         },
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.card,
           borderTopColor: colors.border,
+          borderTopWidth: 1,
           height: TAB_BAR_CONTENT_HEIGHT + tabBarBottomInset,
           paddingTop: 6,
           paddingBottom: tabBarBottomInset,
@@ -41,11 +47,10 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="insights"
         options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <Home size={22} color={color} strokeWidth={2} />,
+          title: 'Insights',
+          tabBarIcon: ({ color }) => <TrendingUp size={22} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
@@ -63,10 +68,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="insights"
+        name="index"
         options={{
-          title: 'Insights',
-          tabBarIcon: ({ color }) => <TrendingUp size={22} color={color} strokeWidth={2} />,
+          title: 'MOMO',
+          tabBarIcon: ({ color }) => <Smartphone size={22} color={color} strokeWidth={2} />,
         }}
       />
     </Tabs>

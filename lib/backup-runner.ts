@@ -61,7 +61,7 @@ async function runRequestedBackup(db: DbClient, force: boolean): Promise<BackupR
   }
 
   store.setBackupAccount({
-    email: data.session.user.email ?? null,
+    email: data.session.user.email ?? data.session.user.phone ?? null,
     userId: data.session.user.id,
   });
   store.setStatus('syncing');

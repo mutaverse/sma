@@ -93,7 +93,7 @@ The application should evolve based on actual usage.
 Approved at kickoff. These override conflicting lines elsewhere in this spec.
 
 * **Stock is counted, not inferred.** Daily sales are a single total, so the app cannot reduce on-hand when something is sold. Purchases add to on-hand. Product detail has **Update count**. Label: **On hand**, with the last counted date. Do not present stock as a live POS figure.
-* **Auth is a backup gate, not a shop gate.** First launch is local onboarding. The app works offline immediately. Cloud email/password lives in Settings (“Save a backup”) and needs internet once. If the session dies, the shop keeps working and backup pauses.
+* **Auth opens the app; daily work remains local-first.** After startup, users sign in or create an account with email/password or phone/password. Sign-up captures the company name. Sessions persist on the device; normal shop operations continue against SQLite without requiring internet.
 * **Products are created on purpose.** Add Product is a real screen. Purchase selects an existing product (with inline create if search misses). V1 includes a one-shot CSV import of the current price list.
 * **Mistakes can be undone.** Daily sales edit in place. The latest purchase for a product can be undone (stock and prices restore from history).
 * **Money is integer pesewas.** Quantity is integer thousandths. Display `GH₵ 8,420.00` with `en-GH` grouping.
@@ -884,19 +884,21 @@ The application should be designed around Ghanaian usage but should not hard-cod
 
 # 19. Authentication
 
-V1 uses Supabase Auth for **backup**, not for opening the shop.
+V1 uses Supabase Auth to identify the supermarket owner and open the app. Once authenticated,
+daily operations remain local-first.
 
 First launch:
 
 ```text
-Local onboarding (business name)
-App is fully usable offline
+Email/password or phone/password → Sign in
+or
+Company name + email/password or phone/password → Create account
 ```
 
-Later, from Settings:
+Later launches:
 
 ```text
-Email + password → Save a backup
+Persisted session → Open the shop
 ```
 
 The account represents the supermarket owner.

@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/layout';
+import { radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
 
 type MetricBlockProps = {
@@ -24,15 +24,31 @@ type HistoryRowProps = {
   date: string;
   cost: string;
   selling: string;
+  onPress?: () => void;
 };
 
-export function HistoryRow({ date, cost, selling }: HistoryRowProps) {
-  return (
-    <View style={styles.history}>
+export function HistoryRow({ date, cost, selling, onPress }: HistoryRowProps) {
+  const body = (
+    <>
       <Text style={styles.historyDate}>{date}</Text>
       <Text style={styles.historyMeta}>Cost {cost}</Text>
       <Text style={styles.historyMeta}>Selling {selling}</Text>
-    </View>
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={styles.history}>{body}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Edit prices from ${date}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.history, pressed ? styles.pressed : null]}
+    >
+      {body}
+    </Pressable>
   );
 }
 
@@ -40,30 +56,22 @@ type PurchaseHistoryRowProps = {
   date: string;
   quantity: string;
   total: string;
-  onUndo?: () => void;
+  onPress?: () => void;
 };
 
-export function PurchaseHistoryRow({ date, quantity, total, onUndo }: PurchaseHistoryRowProps) {
+export function PurchaseHistoryRow({ date, quantity, total, onPress }: PurchaseHistoryRowProps) {
   return (
-    <View style={styles.history}>
-      <View style={styles.historyTop}>
-        <Text style={styles.historyDate}>{date}</Text>
-        {onUndo ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Undo purchase from ${date}`}
-            onPress={onUndo}
-            hitSlop={8}
-            style={({ pressed }) => [styles.undoHit, pressed ? styles.pressed : null]}
-          >
-            <Text style={styles.undoLabel}>Undo</Text>
-          </Pressable>
-        ) : null}
-      </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Edit purchase from ${date}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.history, pressed ? styles.pressed : null]}
+    >
+      <Text style={styles.historyDate}>{date}</Text>
       <Text style={styles.historyMeta}>
         {quantity} · {total}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -94,11 +102,13 @@ export function ConfirmRow({
   onConfirm,
   onCancel,
   disabled,
+  destructive = false,
 }: {
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
   disabled?: boolean;
+  destructive?: boolean;
 }) {
   return (
     <View style={styles.confirmRow}>
@@ -114,7 +124,12 @@ export function ConfirmRow({
         accessibilityRole="button"
         onPress={onConfirm}
         disabled={disabled}
-        style={({ pressed }) => [styles.confirm, pressed ? styles.pressed : null, disabled ? styles.disabled : null]}
+        style={({ pressed }) => [
+          styles.confirm,
+          destructive ? styles.confirmDestructive : null,
+          pressed ? styles.pressed : null,
+          disabled ? styles.disabled : null,
+        ]}
       >
         <Text style={styles.confirmLabel}>{confirmLabel}</Text>
       </Pressable>
@@ -145,6 +160,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   history: {
+    minHeight: 48,
     gap: 2,
     paddingVertical: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -155,23 +171,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     color: colors.text,
-    flex: 1,
-  },
-  historyTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  undoHit: {
-    minHeight: 44,
-    minWidth: 44,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  undoLabel: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
-    color: colors.primary,
   },
   historyMeta: {
     fontFamily: fonts.regular,
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
   },
   warning: {
     backgroundColor: colors.accentMuted,
-    borderRadius: 12,
+    borderRadius: radii.md,
     padding: spacing.lg,
   },
   warningText: {
@@ -209,7 +208,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: radii.md,
+  },
+  confirmDestructive: {
+    backgroundColor: colors.destructive,
   },
   cancelLabel: {
     fontFamily: fonts.semibold,

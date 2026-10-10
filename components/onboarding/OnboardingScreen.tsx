@@ -63,10 +63,9 @@ export function OnboardingScreen({ db, onComplete }: OnboardingScreenProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       >
         <View style={styles.content}>
-          <Text style={styles.title}>What's the shop called?</Text>
-          <Text style={styles.body}>
-            This stays on this phone. You can change it later in Settings.
-          </Text>
+          <Text style={styles.eyebrow}>SMA</Text>
+          <Text style={styles.title}>Name your shop</Text>
+          <Text style={styles.body}>You can change this later.</Text>
 
           <Input
             label="Shop name"
@@ -81,14 +80,12 @@ export function OnboardingScreen({ db, onComplete }: OnboardingScreenProps) {
             }}
           />
 
-          <Text style={styles.hint}>
-            Amounts will show in Ghana cedis ({DEFAULT_CURRENCY_SYMBOL}).
-          </Text>
+          <Text style={styles.hint}>Currency · {DEFAULT_CURRENCY_SYMBOL}</Text>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Button
-            label={saving ? 'Saving…' : 'Start using the app'}
+            label={saving ? 'Saving…' : 'Continue'}
             onPress={() => {
               void handleStart();
             }}
@@ -113,6 +110,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.xxl,
     gap: spacing.lg,
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+  },
+  eyebrow: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 3,
+    color: colors.primary,
   },
   title: {
     fontFamily: fonts.semibold,
