@@ -15,6 +15,7 @@ type ButtonProps = {
   disabled?: boolean;
   icon?: LucideIcon;
   accessibilityLabel?: string;
+  immediate?: boolean;
 } & Pick<PressableProps, 'testID'>;
 
 export function Button({
@@ -25,6 +26,7 @@ export function Button({
   icon: Icon,
   accessibilityLabel,
   testID,
+  immediate = false,
 }: ButtonProps) {
   return (
     <Pressable
@@ -32,7 +34,8 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       disabled={disabled}
-      onPress={onPress}
+      onPress={immediate ? undefined : onPress}
+      onPressIn={immediate && !disabled ? onPress : undefined}
       style={({ pressed }) => [
         styles.base,
         styles[variant],
