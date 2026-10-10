@@ -1,11 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Check, Plus } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ConfirmRow, FieldLabel } from '@/components/products/ProductChrome';
+import { ConfirmRow } from '@/components/products/ProductChrome';
 import { SalesHistoryTable } from '@/components/sales/SalesHistoryTable';
 import { Button } from '@/components/ui/Button';
+import { CalendarPicker } from '@/components/ui/CalendarPicker';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -20,10 +21,8 @@ import {
   pesewasFromCedisInput,
 } from '@/lib/currency';
 import {
-  formatDayMonthYear,
   formatDisplayDate,
   formatLongDisplayDate,
-  parseShopDate,
   todayAccra,
   yesterdayAccra,
 } from '@/lib/dates';
@@ -38,7 +37,7 @@ export default function SalesScreen() {
   const currencySymbol = useAppStore((state) => state.settings?.currencySymbol) ?? 'GH₵';
   const [selectedDate, setSelectedDate] = useState(() => todayAccra());
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
-  const [otherDate, setOtherDate] = useState('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [existing, setExisting] = useState<DailySale | null>(null);
   const [history, setHistory] = useState<DailySale[]>([]);
@@ -49,13 +48,19 @@ export default function SalesScreen() {
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pendingAmount, setPendingAmount] = useState<number | null>(null);
+  const savingRef = useRef(false);
+  const loadRequest = useRef(0);
 
   const today = todayAccra();
   const parsedAmount = pesewasFromCedisInput(amount);
 
   const loadDate = useCallback(
     async (saleDate: string) => {
+      const request = ++loadRequest.current;
       const [sale, days] = await Promise.all([getDailySale(db, saleDate), listDailySales(db)]);
+      if (request !== loadRequest.current) {
+        return;
+      }
       setExisting(sale);
       setHistory(days);
     },
@@ -83,25 +88,13 @@ export default function SalesScreen() {
     setDatePreset(preset);
     setError(null);
     setSaved(false);
+    setCalendarOpen(preset === 'other');
     if (preset === 'today') {
       setSelectedDate(todayAccra());
       return;
     }
     if (preset === 'yesterday') {
       setSelectedDate(yesterdayAccra());
-      return;
-    }
-    setOtherDate(formatDayMonthYear(selectedDate));
-  }
-
-  function applyOtherDate(value: string) {
-    setOtherDate(value);
-    setError(null);
-    setSaved(false);
-    try {
-      setSelectedDate(parseShopDate(value));
-    } catch {
-      // Keep typing until the date is complete.
     }
   }
 
@@ -110,25 +103,28 @@ export default function SalesScreen() {
     setSaved(false);
     setDatePreset('today');
     setSelectedDate(todayAccra());
+    setCalendarOpen(false);
     setAmount('');
     setEntryOpen(true);
   }
 
   function closeEntry() {
-    if (saving) {
+    if (savingRef.current) {
       return;
     }
     setEntryOpen(false);
     setDeleteOpen(false);
+    setCalendarOpen(false);
     setError(null);
     setAmount('');
   }
 
   async function handleDelete() {
-    if (saving) {
+    if (savingRef.current) {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -142,6 +138,7 @@ export default function SalesScreen() {
       setError(userMessage(caught, "We could not delete this day's sales. Please try again."));
       setDeleteOpen(false);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -162,7 +159,7 @@ export default function SalesScreen() {
       return;
     }
     setDatePreset('other');
-    setOtherDate(formatDayMonthYear(saleDate));
+    setCalendarOpen(false);
   }
 
   async function persistSale(saleDate: string, totalSalesPesewas: number) {
@@ -177,10 +174,11 @@ export default function SalesScreen() {
   }
 
   async function handleSave() {
-    if (saving) {
+    if (savingRef.current) {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     setSaved(false);
@@ -193,8 +191,7 @@ export default function SalesScreen() {
         throw new Error('Enter amount with up to 2 decimals.');
       }
 
-      const saleDate =
-        datePreset === 'other' && otherDate.trim() ? parseShopDate(otherDate) : selectedDate;
+      const saleDate = selectedDate;
       const current = await getDailySale(db, saleDate);
       if (current) {
         if (current.totalPesewas === parsedAmount) {
@@ -214,15 +211,17 @@ export default function SalesScreen() {
     } catch (caught) {
       setError(userMessage(caught, "We could not save this day's sales. Please try again."));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
 
   async function confirmReplace() {
-    if (pendingAmount === null || saving) {
+    if (pendingAmount === null || savingRef.current) {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -231,11 +230,10 @@ export default function SalesScreen() {
       setError(userMessage(caught, "We could not save this day's sales. Please try again."));
       setReplaceOpen(false);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
-
-  const canSave = parsedAmount !== null && !saving;
   const editingSale = history.find((row) => row.saleDate === selectedDate) ?? null;
 
   return (
@@ -296,22 +294,36 @@ export default function SalesScreen() {
           style={styles.amount}
         />
         {datePreset === 'other' ? (
-          <FieldLabel label="Date">
-            <Input
-              value={otherDate}
-              onChangeText={applyOtherDate}
-              placeholder="16/09/2026"
-              keyboardType="numbers-and-punctuation"
-            />
-          </FieldLabel>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose date"
+            onPress={() => setCalendarOpen((open) => !open)}
+            style={styles.dateField}
+          >
+            <Text style={styles.dateFieldLabel}>Date</Text>
+            <Text style={styles.dateFieldValue}>{formatDisplayDate(selectedDate)}</Text>
+          </Pressable>
+        ) : null}
+        {calendarOpen && datePreset === 'other' ? (
+          <CalendarPicker
+            value={selectedDate}
+            maxDate={today}
+            onChange={(date) => {
+              setSelectedDate(date);
+              setCalendarOpen(false);
+              setError(null);
+              setSaved(false);
+            }}
+          />
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button
           label={saving ? 'Saving…' : 'Save sales'}
+          immediate
           onPress={() => {
             void handleSave();
           }}
-          disabled={!canSave}
+          disabled={saving}
         />
         {editingSale ? (
           <Button
@@ -406,6 +418,29 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     fontSize: 18,
     lineHeight: 24,
+    color: colors.text,
+  },
+  dateField: {
+    minHeight: minTouchSize,
+    borderWidth: 1,
+    borderColor: colors.input,
+    borderRadius: radii.md,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  dateFieldLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textSecondary,
+  },
+  dateFieldValue: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.text,
   },
   amount: {

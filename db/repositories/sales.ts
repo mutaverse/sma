@@ -11,7 +11,7 @@ export async function upsertDailySales(db: DbClient, input: UpsertDailySalesInpu
   const parsed = upsertDailySalesSchema.parse(input);
   const timestamp = nowIso();
   const existing = await db.getFirstAsync<DailySaleRecord>(
-    'SELECT * FROM daily_sales WHERE sale_date = ? AND deleted_at IS NULL',
+    'SELECT * FROM daily_sales WHERE sale_date = ?',
     [parsed.saleDate],
   );
 
@@ -20,7 +20,7 @@ export async function upsertDailySales(db: DbClient, input: UpsertDailySalesInpu
   await db.withTransactionAsync(async () => {
     if (existing) {
       await db.runAsync(
-        'UPDATE daily_sales SET total_sales = ?, updated_at = ? WHERE id = ?',
+        'UPDATE daily_sales SET total_sales = ?, updated_at = ?, deleted_at = NULL WHERE id = ?',
         [parsed.totalSalesPesewas, timestamp, id],
       );
     } else {
@@ -45,6 +45,7 @@ export async function upsertDailySales(db: DbClient, input: UpsertDailySalesInpu
       ...mapDailySale(existing),
       totalPesewas: parsed.totalSalesPesewas,
       updatedAt: timestamp,
+      deletedAt: null,
     };
   }
 

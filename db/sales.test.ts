@@ -82,4 +82,24 @@ describe('daily sales', () => {
       true,
     );
   });
+
+  it('records a day again after it was deleted', async () => {
+    const db = await setup();
+    await upsertDailySales(db, {
+      saleDate: '2026-09-16',
+      totalSalesPesewas: 42000,
+    });
+    await deleteDailySale(db, '2026-09-16');
+
+    const again = await upsertDailySales(db, {
+      saleDate: '2026-09-16',
+      totalSalesPesewas: 15000,
+    });
+
+    expect(again.totalPesewas).toBe(15000);
+    expect(again.deletedAt).toBeNull();
+    expect(await listDailySales(db)).toEqual([
+      expect.objectContaining({ saleDate: '2026-09-16', totalPesewas: 15000, deletedAt: null }),
+    ]);
+  });
 });
