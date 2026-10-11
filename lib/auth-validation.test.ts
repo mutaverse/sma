@@ -21,6 +21,9 @@ describe('authentication validation', () => {
   it('requires a usable password and hides auth internals', () => {
     expect(() => validatePassword('12345')).toThrow(/at least 6/);
     expect(() => validatePassword('123456')).not.toThrow();
-    expect(authErrorMessage(new Error('JWT expired'))).not.toMatch(/jwt/i);
+    expect(authErrorMessage(new Error('JWT expired'))).toBe('Something went wrong. Please try again.');
+    expect(authErrorMessage(new Error('Enter a valid email address.'))).toBe(
+      'Enter a valid email address.',
+    );
   });
 });

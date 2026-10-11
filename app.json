@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.mutaverse.sma",
       "adaptiveIcon": {
         "backgroundColor": "#176B4D",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
