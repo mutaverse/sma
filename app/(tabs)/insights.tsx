@@ -110,7 +110,14 @@ export default function InsightsScreen() {
         <Text style={styles.chartMeta}>
           {formatPesewas(selectedSummary.averagePesewas, currencySymbol)} / day
         </Text>
+        <Text style={styles.seriesLabel}>Running total</Text>
         <LineChart points={trend} currencySymbol={currencySymbol} />
+        <Text style={[styles.seriesLabel, styles.seriesLabelSpaced]}>{eachPeriodLabel(period)}</Text>
+        <LineChart
+          points={trend.filter((point) => point.label)}
+          currencySymbol={currencySymbol}
+          series="each"
+        />
       </Card>
 
       <View style={styles.group}>
@@ -128,6 +135,16 @@ export default function InsightsScreen() {
       </View>
     </ScrollView>
   );
+}
+
+function eachPeriodLabel(period: InsightPeriod): string {
+  if (period === 'year') {
+    return 'Each month';
+  }
+  if (period === '3m' || period === '6m') {
+    return 'Each week';
+  }
+  return 'Each day';
 }
 
 function MetricRow({
@@ -225,6 +242,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.primary,
     marginBottom: spacing.sm,
+  },
+  seriesLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+  seriesLabelSpaced: {
+    marginTop: spacing.md,
   },
   group: {
     backgroundColor: colors.surface,
