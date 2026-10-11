@@ -29,7 +29,7 @@ export function Modal({ visible, title, onClose, children }: ModalProps) {
     <RNModal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.backdrop}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Pressable style={styles.dismiss} onPress={onClose} accessibilityLabel="Close" />
         <View style={styles.sheet}>
@@ -38,7 +38,7 @@ export function Modal({ visible, title, onClose, children }: ModalProps) {
             <IconButton icon={X} onPress={onClose} accessibilityLabel="Close" />
           </View>
           <ScrollView
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             keyboardDismissMode="on-drag"
             bounces={false}
             contentContainerStyle={styles.body}
