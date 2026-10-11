@@ -160,7 +160,7 @@ function SignInBackup({
         <Text style={styles.error}>Connect to save a backup.</Text>
       ) : null}
       <Input
-        label="Email"
+        label="Phone number or email"
         value={email}
         onChangeText={onChangeEmail}
         autoCapitalize="none"

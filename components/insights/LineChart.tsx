@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, type GestureResponderEvent, type PointerEvent } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/layout';
@@ -11,31 +11,40 @@ import type { CumulativePoint } from '@/lib/insights';
 type LineChartProps = {
   points: CumulativePoint[];
   currencySymbol: string;
+  series?: 'cumulative' | 'each';
 };
 
 const HEIGHT = 164;
 const TOP = 16;
 const BOTTOM = 12;
 
-export function LineChart({ points, currencySymbol }: LineChartProps) {
+export function LineChart({ points, currencySymbol, series = 'cumulative' }: LineChartProps) {
   const [width, setWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const seriesKey = points.map((point) => point.key).join('|');
+  const seriesKey = `${series}:${points.map((point) => point.key).join('|')}`;
 
   useEffect(() => {
     setActiveIndex(null);
   }, [seriesKey]);
 
-  const max = Math.max(...points.map((point) => point.cumulativePesewas), 1);
+  const values = points.map((point) =>
+    series === 'each' ? point.totalPesewas : point.cumulativePesewas,
+  );
+  const max = Math.max(...values, 1);
   const usableHeight = HEIGHT - TOP - BOTTOM;
   const step = points.length > 1 ? width / (points.length - 1) : 0;
-  const coordinates = points.map((point, index) => ({
+  const coordinates = values.map((value, index) => ({
     x: index * step,
-    y: TOP + usableHeight - (point.cumulativePesewas / max) * usableHeight,
+    y: TOP + usableHeight - (value / max) * usableHeight,
   }));
   const path = coordinates
     .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
     .join(' ');
+  const baseline = TOP + usableHeight;
+  const first = coordinates[0];
+  const last = coordinates[coordinates.length - 1];
+  const area =
+    first && last ? `${path} L ${last.x} ${baseline} L ${first.x} ${baseline} Z` : '';
   const active = activeIndex === null ? null : points[activeIndex];
   const activeCoord = activeIndex === null ? null : coordinates[activeIndex];
   const finalPoint = coordinates.at(-1);
@@ -65,14 +74,16 @@ export function LineChart({ points, currencySymbol }: LineChartProps) {
         <View style={styles.readout} pointerEvents="none">
           <Text style={styles.readoutDate}>{active.detail}</Text>
           <Text style={styles.readoutValue}>{formatPesewas(active.totalPesewas, currencySymbol)}</Text>
-          <Text style={styles.readoutRunning}>
-            Running {formatPesewas(active.cumulativePesewas, currencySymbol)}
-          </Text>
+          {series === 'cumulative' ? (
+            <Text style={styles.readoutRunning}>
+              Running {formatPesewas(active.cumulativePesewas, currencySymbol)}
+            </Text>
+          ) : null}
         </View>
       ) : null}
       {width > 0 ? (
         <View
-          accessibilityLabel="Cumulative chart"
+          accessibilityLabel={series === 'each' ? 'Individual chart' : 'Cumulative chart'}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
           onResponderTerminationRequest={() => false}
@@ -81,6 +92,12 @@ export function LineChart({ points, currencySymbol }: LineChartProps) {
           onPointerMove={selectPointer}
         >
           <Svg width={width} height={HEIGHT}>
+            <Defs>
+              <LinearGradient id={`area-${series}`} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={colors.primary} stopOpacity={0.28} />
+                <Stop offset="1" stopColor={colors.primary} stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
             {[0.25, 0.5, 0.75].map((ratio) => (
               <Line
                 key={ratio}
@@ -93,6 +110,7 @@ export function LineChart({ points, currencySymbol }: LineChartProps) {
                 strokeDasharray="4 6"
               />
             ))}
+            {area ? <Path d={area} fill={`url(#area-${series})`} /> : null}
             {activeCoord ? (
               <Line
                 x1={activeCoord.x}
