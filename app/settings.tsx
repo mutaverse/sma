@@ -81,7 +81,7 @@ export default function SettingsScreen() {
       setSaved(true);
       setNameOpen(false);
     } catch {
-      setError('Could not save the name.');
+      setError('We could not save the shop name. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -98,7 +98,7 @@ export default function SettingsScreen() {
       setPasteOpen(false);
       setImportOpen(false);
     } catch (caught) {
-      setImportError(userMessage(caught, 'Could not import that file.'));
+      setImportError(userMessage(caught, 'We could not import that file. Check the columns and try again.'));
     } finally {
       setImporting(false);
     }
@@ -112,7 +112,7 @@ export default function SettingsScreen() {
         await runImport(text);
       }
     } catch {
-      setImportError('Could not open the file picker.');
+      setImportError('We could not open your files. Please try again.');
     }
   }
 

@@ -152,7 +152,7 @@ export default function MomoScreen() {
       setSaved(true);
       await load();
     } catch (caught) {
-      setError(userMessage(caught, 'Could not save transaction.'));
+      setError(userMessage(caught, 'We could not save this transaction. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -172,7 +172,7 @@ export default function MomoScreen() {
       setSaved(true);
       await load();
     } catch (caught) {
-      setError(userMessage(caught, 'Could not delete transaction.'));
+      setError(userMessage(caught, 'We could not delete this transaction. Please try again.'));
       setDeleteOpen(false);
     } finally {
       setSaving(false);

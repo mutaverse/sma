@@ -1,6 +1,7 @@
 import { PRODUCT_UNITS, type ProductUnit } from '@/constants/catalog';
 import { CSV_COLUMNS } from '@/constants/csv';
 import { pesewasFromCedisString } from '@/lib/currency';
+import { userMessage } from '@/lib/errors';
 import { normalizeName } from '@/lib/normalize';
 import { thousandthsFromQuantityString } from '@/lib/quantity';
 import type { CreateProductInput } from '@/lib/validation';
@@ -209,7 +210,7 @@ export function parseProductCsv(
       failed.push({
         row: rowNumber,
         name: name || `Row ${rowNumber}`,
-        reason: error instanceof Error ? error.message : 'We could not read this row.',
+        reason: userMessage(error, 'We could not read this row.'),
       });
     }
   });

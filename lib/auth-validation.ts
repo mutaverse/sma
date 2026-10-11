@@ -1,3 +1,5 @@
+import { isTechnicalMessage } from '@/lib/errors';
+
 export type AuthMethod = 'email' | 'phone';
 
 export function normalizeAuthIdentifier(method: AuthMethod, value: string): string {
@@ -45,10 +47,16 @@ export function authErrorMessage(error: unknown): string {
   if (lower.includes('rate limit')) {
     return 'Too many attempts. Wait a moment and try again.';
   }
-  if (lower.includes('network') || lower.includes('fetch')) {
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('timeout')) {
     return 'Could not connect. Check your internet and try again.';
   }
-  if (message && !/jwt|token|claim/i.test(message)) {
+  if (lower.includes('invalid format') || lower.includes('unable to validate email')) {
+    return 'Enter a valid email address.';
+  }
+  if (lower.includes('otp') || (lower.includes('expired') && lower.includes('code'))) {
+    return 'That code has expired. Request a new one and try again.';
+  }
+  if (message && !isTechnicalMessage(message)) {
     return message;
   }
 

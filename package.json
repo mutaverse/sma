@@ -9,7 +9,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "apk": "eas build --platform android --profile preview"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
