@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { FieldLabel } from '@/components/products/ProductChrome';
 import { ProductResults } from '@/components/products/ProductResults';
 import { Button } from '@/components/ui/Button';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-inset';
 import { Card } from '@/components/ui/Card';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Input } from '@/components/ui/Input';
@@ -139,11 +133,7 @@ export default function AddPurchaseScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView style={styles.flex} contentContainerStyle={styles.content}>
         {hydrating ? null : product ? (
           <View style={styles.productRow}>
             <View style={styles.productCopy}>
@@ -242,8 +232,7 @@ export default function AddPurchaseScreen() {
             />
           </>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 }
 

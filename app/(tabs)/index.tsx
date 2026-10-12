@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Check, Plus } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { MomoHistoryTable } from '@/components/momo/MomoHistoryTable';
 import { ConfirmRow } from '@/components/products/ProductChrome';
 import { Button } from '@/components/ui/Button';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-inset';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -180,10 +181,9 @@ export default function MomoScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
     >
       <View style={styles.heading}>
@@ -310,7 +310,7 @@ export default function MomoScreen() {
       <View style={styles.history}>
         <MomoHistoryTable rows={transactions} currencySymbol={currencySymbol} onOpen={openTransaction} />
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 

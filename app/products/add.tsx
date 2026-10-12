@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { AddProductForm } from '@/components/products/AddProductForm';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-inset';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/layout';
 
@@ -9,13 +10,9 @@ export default function AddProductScreen() {
   const router = useRouter();
 
   return (
-    <ScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
+    <KeyboardAwareScrollView style={styles.flex} contentContainerStyle={styles.content}>
       <AddProductForm onSaved={(product) => router.replace(`/products/${product.id}`)} />
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
