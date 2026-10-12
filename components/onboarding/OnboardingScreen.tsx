@@ -1,15 +1,10 @@
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { useKeyboardOverlap } from '@/components/ui/keyboard-inset';
 import {
   DEFAULT_CURRENCY_CODE,
   DEFAULT_CURRENCY_SYMBOL,
@@ -31,6 +26,7 @@ type OnboardingScreenProps = {
 export function OnboardingScreen({ db, onComplete }: OnboardingScreenProps) {
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const keyboard = useKeyboardOverlap();
   const [error, setError] = useState<string | null>(null);
   const trimmed = name.trim();
 
@@ -58,11 +54,7 @@ export function OnboardingScreen({ db, onComplete }: OnboardingScreenProps) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-      >
-        <View style={styles.content}>
+      <View style={[styles.content, keyboard > 0 ? { paddingBottom: keyboard + spacing.lg } : null]}>
           <Text style={styles.eyebrow}>SMA</Text>
           <Text style={styles.title}>Name your shop</Text>
           <Text style={styles.body}>You can change this later.</Text>
@@ -91,8 +83,7 @@ export function OnboardingScreen({ db, onComplete }: OnboardingScreenProps) {
             }}
             disabled={!trimmed || saving}
           />
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

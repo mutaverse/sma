@@ -1,9 +1,6 @@
 import { useState, type ComponentType } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -26,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 
 import { Button } from '@/components/ui/Button';
+import { KeyboardAwareScrollView, useKeyboardScrollOnFocus } from '@/components/ui/keyboard-inset';
 import { Tabs } from '@/components/ui/Tabs';
 import { colors } from '@/constants/colors';
 import { minTouchSize, radii, spacing } from '@/constants/layout';
@@ -170,15 +168,11 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
           <View style={styles.brand}>
             <View style={styles.brandMark}>
               <Store size={25} color={colors.surface} strokeWidth={2.2} />
@@ -336,8 +330,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
               </View>
             )}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -348,7 +341,8 @@ type AuthFieldProps = TextInputProps & {
   accessory?: React.ReactNode;
 };
 
-function AuthField({ label, icon: Icon, accessory, style, ...props }: AuthFieldProps) {
+function AuthField({ label, icon: Icon, accessory, style, onFocus, ...props }: AuthFieldProps) {
+  const scrollIntoView = useKeyboardScrollOnFocus();
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -358,6 +352,10 @@ function AuthField({ label, icon: Icon, accessory, style, ...props }: AuthFieldP
           placeholderTextColor={colors.textSecondary}
           style={[styles.fieldInput, style]}
           {...props}
+          onFocus={(event) => {
+            onFocus?.(event);
+            scrollIntoView();
+          }}
         />
         {accessory}
       </View>
