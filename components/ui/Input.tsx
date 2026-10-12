@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
+import { useKeyboardScrollOnFocus } from '@/components/ui/keyboard-inset';
 import { colors } from '@/constants/colors';
 import { minTouchSize, radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
@@ -13,6 +14,7 @@ type InputProps = TextInputProps & {
 
 export function Input({ label, description, error, style, onFocus, onBlur, ...rest }: InputProps) {
   const [focused, setFocused] = useState(false);
+  const scrollIntoView = useKeyboardScrollOnFocus();
 
   return (
     <View style={styles.wrap}>
@@ -23,6 +25,7 @@ export function Input({ label, description, error, style, onFocus, onBlur, ...re
         onFocus={(event) => {
           setFocused(true);
           onFocus?.(event);
+          scrollIntoView();
         }}
         onBlur={(event) => {
           setFocused(false);

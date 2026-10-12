@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search } from 'lucide-react-native';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
+import { useKeyboardScrollOnFocus } from '@/components/ui/keyboard-inset';
 import { colors } from '@/constants/colors';
 import { radii, spacing } from '@/constants/layout';
 import { fonts } from '@/constants/typography';
@@ -10,6 +11,7 @@ type SearchInputProps = TextInputProps;
 
 export function SearchInput({ style, onFocus, onBlur, ...rest }: SearchInputProps) {
   const [focused, setFocused] = useState(false);
+  const scrollIntoView = useKeyboardScrollOnFocus();
 
   return (
     <View style={[styles.wrap, focused ? styles.focused : null]}>
@@ -22,15 +24,16 @@ export function SearchInput({ style, onFocus, onBlur, ...rest }: SearchInputProp
         autoCorrect={false}
         autoCapitalize="none"
         style={[styles.field, style]}
+        {...rest}
         onFocus={(event) => {
           setFocused(true);
           onFocus?.(event);
+          scrollIntoView();
         }}
         onBlur={(event) => {
           setFocused(false);
           onBlur?.(event);
         }}
-        {...rest}
       />
     </View>
   );

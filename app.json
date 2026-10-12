@@ -19,7 +19,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "navigationBarColor": "#FFFFFF"
+      "navigationBarColor": "#FFFFFF",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ]
     },
     "androidNavigationBar": {
       "backgroundColor": "#FFFFFF",
@@ -46,6 +51,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f8a199a0-67d6-44a7-b42c-dce212552748"
+      }
+    },
+    "owner": "mmutakilu-org"
   }
 }

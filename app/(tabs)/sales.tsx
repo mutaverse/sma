@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Check, Plus } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmRow } from '@/components/products/ProductChrome';
 import { SalesHistoryTable } from '@/components/sales/SalesHistoryTable';
 import { Button } from '@/components/ui/Button';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-inset';
 import { CalendarPicker } from '@/components/ui/CalendarPicker';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Input } from '@/components/ui/Input';
@@ -238,10 +239,7 @@ export default function SalesScreen() {
 
   return (
     <View style={styles.flex}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
+      <KeyboardAwareScrollView style={styles.flex} contentContainerStyle={styles.content}>
         <View style={styles.heading}>
           <View>
             <Text style={styles.eyebrow}>SALES</Text>
@@ -264,7 +262,7 @@ export default function SalesScreen() {
             onOpenDay={openDay}
           />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <Modal
         visible={entryOpen && !replaceOpen && !deleteOpen}
